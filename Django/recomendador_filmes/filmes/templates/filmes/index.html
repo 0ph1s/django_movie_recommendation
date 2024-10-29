@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Recomendador de Filmes</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"> <!-- Link do Font Awesome -->
+    <style>
+        *, html {
+            scroll-behavior: smooth !important;
+        }
+        
+        * {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: #ffffff;
+        }
+        
+        body {
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            height: 100vh;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        form {
+            display: flex;
+            height: 100vh;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        input {
+            width: 300px;
+            padding: 10px;
+            color: #434371;
+            outline: none;
+            border: 3px solid #ffffff;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        
+        ::placeholder {
+            color: rgba(110, 136, 152, 0.6);
+        }
+        
+        button {
+            width: 324px;
+            height: 48px;
+            padding: 10px;
+            border-radius: 10px;
+            border: none;
+            background-color: transparent;
+            box-shadow: 0 4px 8px 0 #ffffff, 0 4px 8px 0 #ffffff;
+            cursor: pointer;
+            margin-bottom: 24px;
+
+            transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+        
+        button:hover {
+            background-color: #292F36;
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        button:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+        }
+        
+        table {
+            width: 80%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border: 3px solid #ffffff;
+        }
+        
+        th {
+            background-color: transparent;
+        }
+
+        .recomenda {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+            height: 80%;
+        }
+
+        .fa-clapperboard{
+            font-size: 80px;
+        }
+    </style>
+</head>
+<body>
+    <form method="POST" action="" onsubmit="return handleSubmit();">
+        {% csrf_token %}
+        <i class="fa-solid fa-clapperboard"></i>
+        <input type="text" id="filme" name="filme" placeholder="Nome do filme:" required>
+        <input class='inputa' type="number" id="quantidade" name="quantidade" min="1" placeholder="Número de recomendações:" required>
+        <button type="submit">
+            <i class="fas fa-film"></i> Recomendar <!-- Ícone de filme -->
+        </button>
+    </form>
+
+    <div class="recomenda" id="recomendacoes">
+        {% if recomendacoes %}
+            <h2>Recomendações para "{{ filme_requerido }}":</h2>
+            <table>
+                <tr>
+                    <th>#</th>
+                    <th>Título do Filme:</th>
+                </tr>
+                {% for recomendacao in recomendacoes %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ recomendacao }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        {% elif filme_requerido %}
+            <p>Filme "{{ filme_requerido }}" não encontrado.</p>
+        {% endif %}
+    </div>
+
+    <script>
+        function handleSubmit() {
+            setTimeout(function() {
+                const target = document.getElementById('recomendacoes');
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, 100);
+            return true;
+        }
+    </script>
+</body>
+</html>
