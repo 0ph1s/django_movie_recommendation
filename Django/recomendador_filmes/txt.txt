@@ -1,9 +1,0 @@
-Terminal:
-
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-
-venv\Scripts\activate
-
-cd recomendador_filmes
-
-python manage.py runserver 
