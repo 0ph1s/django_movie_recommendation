@@ -2,25 +2,29 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Recomendador de Filmes</title>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"> <!-- Link do Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"> <!-- Link do Font Awesome -->
     <style>
-        *, html {
-            scroll-behavior: smooth !important;
+        html {
+            scroll-behavior: smooth;
         }
-        
+
         * {
+            box-sizing: border-box;
             font-family: 'JetBrains Mono', monospace;
             font-weight: 600;
             color: #ffffff;
         }
-        
+
         body {
+            margin: 0;
+            padding: 0 16px;
             background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
             background-size: 400% 400%;
             animation: gradient 15s ease infinite;
-            height: 100vh;
+            min-height: 100vh;
         }
 
         @keyframes gradient {
@@ -28,18 +32,23 @@
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
-        
+
+        @media (prefers-reduced-motion: reduce) {
+            body { animation: none; }
+            html { scroll-behavior: auto; }
+        }
+
         form {
             display: flex;
-            height: 100vh;
+            min-height: 100vh;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             gap: 16px;
         }
-        
+
         input {
-            width: 300px;
+            width: min(324px, 100%);
             padding: 10px;
             color: #434371;
             outline: none;
@@ -47,13 +56,17 @@
             border-radius: 10px;
             font-size: 16px;
         }
-        
+
+        input:focus-visible {
+            box-shadow: 0 0 0 3px rgba(41, 47, 54, 0.6);
+        }
+
         ::placeholder {
             color: rgba(110, 136, 152, 0.6);
         }
-        
+
         button {
-            width: 324px;
+            width: min(324px, 100%);
             height: 48px;
             padding: 10px;
             border-radius: 10px;
@@ -65,30 +78,48 @@
 
             transition: background-color 0.3s ease, transform 0.3s ease;
         }
-        
+
         button:hover {
             background-color: #292F36;
             color: white;
             transform: scale(1.05);
         }
-        
-        button:focus {
+
+        button:focus-visible {
             outline: none;
             box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
         }
-        
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+        }
+
+        .errorlist {
+            margin: -8px 0 0;
+            padding: 0;
+            list-style: none;
+            font-size: 14px;
+            text-align: center;
+        }
+
         table {
-            width: 80%;
+            width: 100%;
+            max-width: 800px;
             border-collapse: collapse;
             margin-top: 20px;
         }
-        
+
         th, td {
             padding: 10px;
             text-align: left;
             border: 3px solid #ffffff;
         }
-        
+
         th {
             background-color: transparent;
         }
@@ -97,56 +128,56 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 40px;
-            height: 80%;
+            padding: 40px 0;
+            text-align: center;
         }
 
-        .fa-clapperboard{
+        .fa-clapperboard {
             font-size: 80px;
         }
     </style>
 </head>
 <body>
-    <form method="POST" action="" onsubmit="return handleSubmit();">
+    <form method="POST" action="#recomendacoes">
         {% csrf_token %}
-        <i class="fa-solid fa-clapperboard"></i>
-        <input type="text" id="filme" name="filme" placeholder="Nome do filme:" required>
-        <input class='inputa' type="number" id="quantidade" name="quantidade" min="1" placeholder="Número de recomendações:" required>
+        <i class="fa-solid fa-clapperboard" aria-hidden="true"></i>
+
+        <label class="sr-only" for="{{ form.filme.id_for_label }}">{{ form.filme.label }}</label>
+        {{ form.filme }}
+        {{ form.filme.errors }}
+
+        <label class="sr-only" for="{{ form.quantidade.id_for_label }}">{{ form.quantidade.label }}</label>
+        {{ form.quantidade }}
+        {{ form.quantidade.errors }}
+
         <button type="submit">
-            <i class="fas fa-film"></i> Recomendar <!-- Ícone de filme -->
+            <i class="fas fa-film" aria-hidden="true"></i> Recomendar <!-- Ícone de filme -->
         </button>
     </form>
 
     <div class="recomenda" id="recomendacoes">
         {% if recomendacoes %}
-            <h2>Recomendações para "{{ filme_requerido }}":</h2>
+            <h2>Recomendações para "{{ filme_encontrado.titulo }}"{% if filme_encontrado.ano %} ({{ filme_encontrado.ano }}){% endif %}:</h2>
+            {% if filme_encontrado.titulo|lower != filme_requerido|lower %}
+                <p>Você buscou por "{{ filme_requerido }}".</p>
+            {% endif %}
             <table>
                 <tr>
                     <th>#</th>
                     <th>Título do Filme:</th>
+                    <th>Ano:</th>
                 </tr>
                 {% for recomendacao in recomendacoes %}
                 <tr>
                     <td>{{ forloop.counter }}</td>
-                    <td>{{ recomendacao }}</td>
+                    <td>{{ recomendacao.titulo }}</td>
+                    <td>{{ recomendacao.ano|default:"—" }}</td>
                 </tr>
                 {% endfor %}
             </table>
-        {% elif filme_requerido %}
+        {% elif form.is_valid %}
             <p>Filme "{{ filme_requerido }}" não encontrado.</p>
         {% endif %}
     </div>
-
-    <script>
-        function handleSubmit() {
-            setTimeout(function() {
-                const target = document.getElementById('recomendacoes');
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth' });
-                }
-            }, 100);
-            return true;
-        }
-    </script>
 </body>
 </html>
