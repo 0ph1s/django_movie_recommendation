@@ -171,8 +171,11 @@ def matrix(request):
 # ---------------------------------------------------------------- perfil
 
 def _history(request):
+    dono = owner_key(request)
+    if dono is None:
+        return []
     return list(
-        Interaction.objects.filter(owner=owner_key(request))
+        Interaction.objects.filter(owner=dono)
         .select_related('title').prefetch_related('title__genres')
     )
 
@@ -204,7 +207,7 @@ def add_interaction(request):
     titulo = get_object_or_404(Title, pk=title_id)
     with transaction.atomic():
         Interaction.objects.update_or_create(
-            owner=owner_key(request), title=titulo, defaults={'signal': sinal},
+            owner=owner_key(request, create=True), title=titulo, defaults={'signal': sinal},
         )
     return JsonResponse(_profile_payload(request), status=201)
 

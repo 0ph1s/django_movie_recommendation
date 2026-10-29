@@ -17,6 +17,8 @@ db.sqlite3
 # Editores / sistema operacional
 .vscode/
 .idea/
+# Configuração local do Claude Code
+.claude/
 .DS_Store
 Thumbs.db
 

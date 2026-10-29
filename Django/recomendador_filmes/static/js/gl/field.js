@@ -15,7 +15,7 @@ const INKS = {
 const CELL_CSS_PX = 9;
 const MAX_DPR = 1.5;
 
-export class HalftoneField {
+export class AsciiField {
   constructor(canvas, { reduced = false } = {}) {
     this.canvas = canvas;
     this.reduced = reduced;
