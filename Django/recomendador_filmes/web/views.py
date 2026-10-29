@@ -2,6 +2,7 @@
 from itertools import chain, zip_longest
 
 from django.db.models import Count
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 
@@ -43,3 +44,10 @@ def playground(request):
         'kinds': Title.Kind.choices,
         'total_titles': Title.objects.count(),
     })
+
+
+def page_not_found(request, exception):
+    """404 do site (handler404). A API continua respondendo em JSON."""
+    if request.path.startswith('/api/'):
+        return JsonResponse({'error': 'Recurso não encontrado.'}, status=404)
+    return render(request, '404.html', {'page': 'not-found'}, status=404)

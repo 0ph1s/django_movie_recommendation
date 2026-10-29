@@ -31,6 +31,7 @@
 </head>
 <body data-page="{{ page }}" class="min-h-svh overflow-x-hidden">
   <canvas class="field-canvas" data-field aria-hidden="true"></canvas>
+  <p class="display pointer-events-none invisible fixed inset-0 z-[96] flex items-center justify-center px-4 text-center text-[clamp(3.5rem,13vw,12rem)] font-black text-silver opacity-0" data-transition-label aria-hidden="true"></p>
 
   <a href="#conteudo" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[120] focus:bg-silver focus:px-4 focus:py-2 focus:text-night">Pular para o conteúdo</a>
 
@@ -43,7 +44,7 @@
             <span class="magnetic__label">Abrir o playground</span>
           </a>
         {% else %}
-          <a href="{% url 'web:home' %}#metodo" class="text-sm text-dim underline-offset-4 hover:text-silver hover:underline">Como funciona</a>
+          <a href="{% url 'web:home' %}#metodo" class="text-sm text-dim underline-offset-4 hover:text-silver hover:underline" data-transition-label="Como funciona">Como funciona</a>
         {% endif %}
       </div>
     </nav>

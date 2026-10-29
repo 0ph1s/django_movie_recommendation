@@ -5,6 +5,8 @@ from django.contrib.staticfiles.views import serve
 from django.urls import include, path, re_path
 from django.views.decorators.cache import never_cache
 
+handler404 = 'web.views.page_not_found'
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),

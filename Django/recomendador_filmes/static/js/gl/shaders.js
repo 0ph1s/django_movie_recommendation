@@ -159,6 +159,9 @@ void main() {
     float frente = clamp(uVeil * 1.7 - (centro.x * 0.35 + centro.y * 0.35), 0.0, 1.0);
     float cobre = frente > 0.97 ? 1.0 : glifo(frente, local);
     over(cor, alfa, uNight, cobre);
+    // Borda da onda: uma faixa de caracteres ciano que marca a passagem da cortina.
+    float borda = max(1.0 - abs(frente - 0.32) / 0.3, 0.0);
+    if (borda > 0.0) over(cor, alfa, uCyanInk, glifo(borda, local) * borda);
   }
 
   // Tons do campo no centro da célula; a tinta dominante define a cor do caractere.

@@ -137,6 +137,21 @@ class PaginasTests(ApiTestCase):
                 self.assertEqual(resposta.status_code, 200)
                 self.assertContains(resposta, 'data-field')
 
+    def test_pagina_404(self):
+        resposta = self.client.get('/nao-existe/')
+        self.assertEqual(resposta.status_code, 404)
+        self.assertContains(resposta, 'Página não encontrada', status_code=404)
+        self.assertContains(resposta, '/nao-existe/', status_code=404)
+        self.assertEqual(resposta.context['page'], 'not-found')
+
+    def test_404_da_api_continua_em_json(self):
+        for caminho in ['/api/nao-existe/', reverse('api:title-detail', args=[999999])]:
+            with self.subTest(caminho=caminho):
+                resposta = self.client.get(caminho)
+                self.assertEqual(resposta.status_code, 404)
+                self.assertEqual(resposta['Content-Type'], 'application/json')
+                self.assertIn('error', resposta.json())
+
     def test_titulo_da_pagina_e_so_texto(self):
         resposta = self.client.get(reverse('web:playground'))
         self.assertContains(resposta, '<title>Playground | Ângulo</title>')

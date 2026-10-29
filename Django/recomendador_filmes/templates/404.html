@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}Página não encontrada | Ângulo{% endblock %}
+
+{% block content %}
+<section class="relative flex min-h-[calc(100svh-12rem)] flex-col justify-center px-4 pb-16 pt-4 sm:px-8" data-not-found>
+  <div class="mx-auto w-full max-w-[1600px]">
+    <p class="display text-[clamp(9rem,34vw,32rem)] font-black leading-[0.78] text-silver" aria-hidden="true" data-scramble>404</p>
+    <div class="mt-10 grid gap-8 md:grid-cols-[minmax(0,38rem)_1fr] md:items-end">
+      <div>
+        <h1 class="text-2xl font-semibold sm:text-3xl">Página não encontrada</h1>
+        <p class="mt-3 text-lg leading-relaxed text-silver/80">
+          O endereço <code class="rounded-sm bg-deep px-1.5 py-0.5 text-base text-cyan [overflow-wrap:anywhere]">{{ request.path }}</code>
+          não existe aqui. Confira se ele foi digitado certo.
+        </p>
+        <p class="mt-3 text-sm text-dim">O cosseno entre este endereço e qualquer página do site é 0.</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3 md:justify-end">
+        <a href="{% url 'web:home' %}" class="magnetic rounded-full bg-cyan px-7 py-4 text-base font-semibold text-night" data-magnetic>
+          <span class="magnetic__label">Voltar ao início</span>
+        </a>
+        <a href="{% url 'web:playground' %}" class="magnetic rounded-full border border-rule px-7 py-4 text-base text-silver hover:border-silver/60" data-magnetic>
+          <span class="magnetic__label">Abrir o playground</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
