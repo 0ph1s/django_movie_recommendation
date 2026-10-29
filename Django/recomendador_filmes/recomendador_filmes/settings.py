@@ -115,13 +115,13 @@ WSGI_APPLICATION = 'recomendador_filmes.wsgi.application'
 # As conexões são reaproveitadas entre requisições da mesma instância da função.
 if os.environ.get('DATABASE_URL'):
     DATABASES = {'default': dj_database_url.config(conn_max_age=60, conn_health_checks=True)}
-elif ON_VERCEL:
-    raise ImproperlyConfigured('Defina DATABASE_URL: o disco das funções do Vercel é somente leitura.')
 else:
+    # No Vercel sem banco configurado (ou durante o build, que lê estas configurações), só /tmp
+    # é gravável: o site sobe, mas com o catálogo vazio até DATABASE_URL ser definida.
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'NAME': Path('/tmp/db.sqlite3') if ON_VERCEL else BASE_DIR / 'db.sqlite3',
         }
     }
 
