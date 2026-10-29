@@ -153,12 +153,16 @@ python manage.py runserver --nostatic   # estáticos sem cache (ver recomendador
 - `static/js/gl/`: o campo WebGL em duas passadas. A primeira calcula ruído com *domain warping*,
   curvas de nível e a lente do cursor em baixa resolução; a segunda troca cada célula pelo
   caractere ASCII de densidade equivalente (de um atlas gerado em canvas), na cor da tinta
-  dominante. Os mesmos caracteres fazem a transição entre páginas.
+  dominante. Os mesmos caracteres fazem a transição entre páginas: uma onda com a borda em ciano
+  cobre a tela enquanto o nome do destino aparece no centro (`data-transition-label` num link troca
+  o nome; `data-transition="off"` desliga a transição).
 - `static/js/fx/`: botões magnéticos, inclinação 3D dos pôsteres, revelação de títulos (SplitText +
   ScrollTrigger), transições entre páginas e rolagem suave com [Lenis](https://github.com/darkroomengineering/lenis),
   que mantém a rolagem nativa (sticky e âncoras continuam funcionando) e só suaviza roda e trackpad.
   Áreas com rolagem própria usam `data-lenis-prevent`.
-- `static/js/pages/`: a página inicial e o playground (com reordenação animada via Flip).
+- `static/js/pages/`: a página inicial, o playground (com reordenação animada via Flip) e a página
+  404, cujo número se monta a partir dos caracteres ASCII do fundo. Endereços inexistentes em
+  `/api/` continuam respondendo em JSON (`web.views.page_not_found`).
 
 Tudo respeita `prefers-reduced-motion`. Sem WebGL, o site funciona com fundo liso e transição por fade.
 

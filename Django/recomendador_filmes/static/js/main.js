@@ -15,6 +15,7 @@ gsap.registerPlugin(ScrollTrigger, SplitText, Flip);
 const PAGES = {
   home: () => import('./pages/home.js'),
   playground: () => import('./pages/playground.js'),
+  'not-found': () => import('./pages/not-found.js'),
 };
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

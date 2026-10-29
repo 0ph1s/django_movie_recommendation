@@ -1,5 +1,6 @@
-// Transição entre páginas: o fundo WebGL sobe para a frente do conteúdo e a cortina
-// de pontos cobre a tela; na página seguinte, os pontos encolhem e revelam o conteúdo.
+// Transição entre páginas: o fundo WebGL sobe para a frente do conteúdo e uma onda de
+// caracteres ASCII (com a borda em ciano) cobre a tela, enquanto o nome da página de
+// destino aparece no centro. Na página seguinte, a cortina recua e o nome some.
 // Sem WebGL, uma cortina sólida faz o mesmo papel com um simples fade.
 import { gsap } from 'gsap';
 
@@ -7,18 +8,30 @@ import { startScroll, stopScroll } from './smooth-scroll.js';
 
 const STORAGE_KEY = 'angulo:veil';
 
+// Nome mostrado na cortina, por caminho. Links podem sobrescrever com data-transition-label.
+const LABELS = {
+  '/': 'Início',
+  '/playground/': 'Playground',
+};
+
+/** Lê (e apaga) o aviso deixado pela página anterior: null, ou o nome do destino. */
 function lerSinal() {
   try {
     const valor = sessionStorage.getItem(STORAGE_KEY);
     sessionStorage.removeItem(STORAGE_KEY);
-    return Boolean(valor);
+    return valor ? valor.slice(2) : null;  // formato "1|Nome"
   } catch {
-    return false;
+    return null;
   }
 }
 
-function gravarSinal() {
-  try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch { /* modo privado: segue sem cortina */ }
+function gravarSinal(rotulo) {
+  try { sessionStorage.setItem(STORAGE_KEY, `1|${rotulo}`); } catch { /* modo privado: segue sem cortina */ }
+}
+
+function rotuloDe(link) {
+  if (link.dataset.transitionLabel) return link.dataset.transitionLabel;
+  return LABELS[new URL(link.href, location.href).pathname] ?? '';
 }
 
 function isInternalNavigation(link, evento) {
@@ -40,34 +53,46 @@ function solidCurtain() {
   return el;
 }
 
+/** Nome da página sobre a cortina. */
+function mostrarRotulo(texto, { entrando }) {
+  const el = document.querySelector('[data-transition-label]');
+  if (!el || !texto) return null;
+  el.textContent = texto;
+  return entrando
+    // Na saída, o nome só entra quando a cortina já cobriu a maior parte da tela.
+    ? gsap.fromTo(el, { autoAlpha: 0, yPercent: 40 }, { autoAlpha: 1, yPercent: 0, duration: 0.5, delay: 0.5, ease: 'expo.out' })
+    : gsap.fromTo(el, { autoAlpha: 1, yPercent: 0 }, { autoAlpha: 0, yPercent: -30, duration: 0.55, delay: 0.1, ease: 'power2.in' });
+}
+
 /**
  * Liga a transição de saída nos links internos e executa a de entrada.
  * Devolve uma Promise resolvida quando o conteúdo da página está visível.
  */
 export function initTransitions(field, { reduced = false } = {}) {
   const html = document.documentElement;
-  const chegandoDeTransicao = lerSinal();
+  const rotuloDeChegada = lerSinal();
 
   let entrada;
-  if (chegandoDeTransicao && field && !reduced) {
+  if (rotuloDeChegada !== null && field && !reduced) {
     field.state.veil = 1;
     field.invalidate();
     document.body.classList.add('is-veiled');
     // Só tira a cortina CSS depois que o canvas já desenhou a dele.
     requestAnimationFrame(() => requestAnimationFrame(() => html.classList.remove('is-entering')));
+    mostrarRotulo(rotuloDeChegada, { entrando: false });
     entrada = new Promise((resolve) => {
       gsap.to(field.state, {
         veil: 0,
         duration: 1.05,
         ease: 'power2.inOut',
-        delay: 0.05,
+        delay: 0.15,
         onComplete() {
           document.body.classList.remove('is-veiled');
           resolve();
         },
       });
-      // A partir de ~60% os pontos já liberam a leitura: a intro pode começar.
-      gsap.delayedCall(0.55, resolve);
+      // A partir de ~60% os caracteres já liberam a leitura: a intro pode começar.
+      gsap.delayedCall(0.65, resolve);
     });
   } else {
     html.classList.remove('is-entering');
@@ -79,6 +104,7 @@ export function initTransitions(field, { reduced = false } = {}) {
     if (!e.persisted) return;
     if (field) field.state.veil = 0;
     document.body.classList.remove('is-veiled');
+    gsap.set('[data-transition-label]', { autoAlpha: 0 });
     startScroll();
     document.querySelectorAll('[data-curtain]').forEach((el) => el.remove());
   });
@@ -90,7 +116,8 @@ export function initTransitions(field, { reduced = false } = {}) {
     if (!isInternalNavigation(link, evento)) return;
     evento.preventDefault();
     const destino = link.href;
-    gravarSinal();
+    const rotulo = rotuloDe(link);
+    gravarSinal(rotulo);
     stopScroll();
 
     let saiu = false;
@@ -101,11 +128,13 @@ export function initTransitions(field, { reduced = false } = {}) {
     };
     // Se a animação não terminar (aba em segundo plano congela o requestAnimationFrame),
     // a navegação acontece mesmo assim.
-    setTimeout(sair, 1500);
+    setTimeout(sair, 1800);
 
+    mostrarRotulo(rotulo, { entrando: true });
     if (field) {
       document.body.classList.add('is-veiled');
-      gsap.to(field.state, { veil: 1, duration: 0.75, ease: 'power2.in', overwrite: true, onComplete: sair });
+      // Um respiro depois de cobrir a tela, para o nome do destino ser lido.
+      gsap.to(field.state, { veil: 1, duration: 0.8, ease: 'power2.in', overwrite: true, onComplete: () => gsap.delayedCall(0.2, sair) });
     } else {
       const cortina = solidCurtain();
       cortina.dataset.curtain = '';
