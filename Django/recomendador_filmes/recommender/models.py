@@ -4,11 +4,17 @@ from django.db import models
 from catalog.models import Title
 
 
-def owner_key(request):
-    """Dono do histórico: o usuário autenticado ou, se anônimo, a sessão do navegador."""
+def owner_key(request, create=False):
+    """Dono do histórico: o usuário autenticado ou, se anônimo, a sessão do navegador.
+
+    Visitante sem sessão ainda não tem histórico: devolve None, a menos que `create` peça
+    uma sessão nova (só ao gravar uma interação, para leituras não encherem o banco).
+    """
     if request.user.is_authenticated:
         return f'u:{request.user.pk}'
     if not request.session.session_key:
+        if not create:
+            return None
         request.session.save()
     return f's:{request.session.session_key}'
 

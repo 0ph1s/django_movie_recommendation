@@ -36,6 +36,9 @@ class RecommenderConfig:
     recency_half_life: float = 6  # a cada N interações mais antigas, o peso cai pela metade
 
     index_path: Path = Path('var/recommender_index.joblib')
+    # Segundos em que o índice em memória é usado sem conferir no banco se o catálogo mudou.
+    # 0 confere a cada consulta (desenvolvimento e testes).
+    fingerprint_ttl: float = 0
 
     @property
     def block_weights(self):

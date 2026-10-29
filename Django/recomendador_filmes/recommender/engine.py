@@ -20,6 +20,7 @@ float32): cada consulta calcula só a linha de que precisa, em poucos milissegun
 """
 import logging
 import threading
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
 
@@ -137,6 +138,7 @@ class Recommendation:
 
 _lock = threading.Lock()
 _cached = None
+_checked_at = 0.0  # time.monotonic() da última vez que o fingerprint confirmou _cached
 
 
 def _fingerprint():
@@ -156,26 +158,32 @@ def _is_current(indice, fingerprint, config):
 
 def get_index():
     """Índice atual, do cache em memória, do disco ou reconstruído, nessa ordem."""
-    global _cached
+    global _cached, _checked_at
     config = get_config()
+    # Dentro do intervalo, nem consulta o banco: o catálogo muda raramente (só por comando).
+    if _cached is not None and time.monotonic() - _checked_at < config.fingerprint_ttl:
+        return _cached
+
     fingerprint = _fingerprint()
     if _is_current(_cached, fingerprint, config):
+        _checked_at = time.monotonic()
         return _cached
 
     with _lock:
-        if _is_current(_cached, fingerprint, config):
-            return _cached
-        indice = _load_from_disk(config)
-        if not _is_current(indice, fingerprint, config):
-            indice = _build_and_save(config, fingerprint)
-        _cached = indice
-        return indice
+        if not _is_current(_cached, fingerprint, config):
+            indice = _load_from_disk(config)
+            if not _is_current(indice, fingerprint, config):
+                indice = _build_and_save(config, fingerprint)
+            _cached = indice
+        _checked_at = time.monotonic()
+        return _cached
 
 
 def rebuild_index():
-    global _cached
+    global _cached, _checked_at
     with _lock:
         _cached = _build_and_save(get_config(), _fingerprint())
+        _checked_at = time.monotonic()
         return _cached
 
 

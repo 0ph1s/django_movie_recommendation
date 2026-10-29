@@ -9,7 +9,7 @@ import { initMagnetic } from './fx/magnetic.js';
 import { initReveal } from './fx/reveal.js';
 import { initSmoothScroll } from './fx/smooth-scroll.js';
 import { initTransitions } from './fx/transitions.js';
-import { HalftoneField } from './gl/field.js';
+import { AsciiField } from './gl/field.js';
 
 gsap.registerPlugin(ScrollTrigger, SplitText, Flip);
 
@@ -23,7 +23,7 @@ const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function createField() {
   const canvas = document.querySelector('[data-field]');
-  const field = new HalftoneField(canvas, { reduced });
+  const field = new AsciiField(canvas, { reduced });
   if (!field.init()) {
     canvas.remove();
     return null;
@@ -55,8 +55,12 @@ document.fonts.ready.then(async () => {
   initMagnetic(document, { reduced });
   // Os títulos só se revelam quando a página fica visível (depois do carregamento ou da cortina).
   ready.then(() => initReveal(document, { reduced }));
-  if (moduloDaPagina) {
+  if (!moduloDaPagina) return;
+  try {
     const modulo = await moduloDaPagina;
     modulo.default({ field, reduced, ready });
+  } catch (erro) {
+    // Sem o módulo, a página continua legível: o CSS revela a abertura sozinho em 3 s.
+    console.error('[Ângulo] falha ao iniciar a página:', erro);
   }
 });

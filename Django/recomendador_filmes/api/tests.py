@@ -9,6 +9,7 @@ from catalog.importers.loader import refresh_popularity_ranks, save_records
 from catalog.models import Title
 from catalog.tests.factories import sample_catalog
 from recommender.config import get_config
+from recommender.engine import get_index
 
 
 class ApiTestCase(TestCase):
@@ -73,6 +74,15 @@ class CatalogoApiTests(ApiTestCase):
         self.assertAlmostEqual(dados['matrix'][0][0], 1.0, places=3)
         self.assertEqual(self.client.get(reverse('api:similarity-matrix'), {'ids': 'a,b'}).status_code, 400)
 
+    def test_indice_em_memoria_dispensa_o_banco_dentro_do_ttl(self):
+        caminho = get_config().index_path
+        with override_settings(RECOMMENDER={'INDEX_PATH': caminho, 'FINGERPRINT_TTL': 60}):
+            get_config.cache_clear()
+            indice = get_index()
+            with self.assertNumQueries(0):
+                self.assertIs(get_index(), indice)
+        get_config.cache_clear()
+
     def test_catalogo_vazio_responde_503_com_instrucao(self):
         Title.objects.all().delete()
         resposta = self.client.get(reverse('api:recommendations'))
@@ -112,6 +122,14 @@ class PerfilApiTests(ApiTestCase):
         self.curtir('Orbit')
         outro = self.client_class()
         self.assertEqual(outro.get(reverse('api:profile')).json()['history'], [])
+
+    def test_ler_o_perfil_nao_cria_sessao(self):
+        for rota in ('api:profile', 'api:recommendations'):
+            with self.subTest(rota=rota):
+                resposta = self.client.get(reverse(rota))
+                self.assertEqual(resposta.json()['history'], [])
+                self.assertNotIn('sessionid', resposta.cookies)
+        self.assertIn('sessionid', self.curtir('Orbit').cookies)
 
     def test_payload_invalido(self):
         for corpo in ['{}', 'nao-e-json', json.dumps({'title_id': self.pk('Orbit'), 'signal': 5})]:

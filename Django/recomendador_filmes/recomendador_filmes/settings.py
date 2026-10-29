@@ -184,12 +184,14 @@ TMDB_API_KEY = os.environ.get('TMDB_API_KEY', '')
 # Pesos e parâmetros do recomendador (ver recommender/config.py para a descrição de cada um).
 # Qualquer chave omitida usa o valor padrão de RecommenderConfig.
 # No Vercel só /tmp é gravável: o índice é reconstruído a partir do banco no primeiro uso de
-# cada instância (alguns segundos) e reaproveitado enquanto ela viver.
+# cada instância (alguns segundos) e reaproveitado enquanto ela viver. Lá, a conferência de
+# que o catálogo mudou (uma consulta ao Neon) acontece no máximo a cada 30 s.
 RECOMMENDER = {
     'INDEX_PATH': Path(
         os.environ.get('RECOMMENDER_INDEX_PATH')
         or ('/tmp/recommender_index.joblib' if ON_VERCEL else BASE_DIR / 'var' / 'recommender_index.joblib')
     ),
+    'FINGERPRINT_TTL': 30 if ON_VERCEL else 0,
 }
 
 # Default primary key field type
