@@ -1,4 +1,4 @@
-// Copia os módulos ESM do GSAP usados pelo site de node_modules/ para static/vendor/.
+// Copia os módulos ESM do GSAP e do Lenis usados pelo site de node_modules/ para static/vendor/.
 // Assim o Django serve tudo localmente e quem só roda o backend não precisa de Node.
 import { copyFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const origem = join(raiz, 'node_modules', 'gsap');
 const destino = join(raiz, 'static', 'vendor', 'gsap');
+const vendor = join(raiz, 'static', 'vendor');
 
 // index.js reexporta o núcleo; ScrollTrigger depende de Observer; Flip de utils/matrix.js;
 // SplitText é autônomo.
@@ -20,3 +21,8 @@ for (const arquivo of ARQUIVOS) {
   copyFileSync(join(origem, arquivo), join(destino, arquivo));
 }
 console.log(`GSAP: ${ARQUIVOS.length} módulos copiados para static/vendor/gsap/`);
+
+// Lenis (rolagem suave): um único módulo, sem dependências.
+mkdirSync(join(vendor, 'lenis'), { recursive: true });
+copyFileSync(join(raiz, 'node_modules', 'lenis', 'dist', 'lenis.mjs'), join(vendor, 'lenis', 'lenis.mjs'));
+console.log('Lenis: lenis.mjs copiado para static/vendor/lenis/');

@@ -3,6 +3,8 @@
 // Sem WebGL, uma cortina sólida faz o mesmo papel com um simples fade.
 import { gsap } from 'gsap';
 
+import { startScroll, stopScroll } from './smooth-scroll.js';
+
 const STORAGE_KEY = 'angulo:veil';
 
 function lerSinal() {
@@ -77,6 +79,7 @@ export function initTransitions(field, { reduced = false } = {}) {
     if (!e.persisted) return;
     if (field) field.state.veil = 0;
     document.body.classList.remove('is-veiled');
+    startScroll();
     document.querySelectorAll('[data-curtain]').forEach((el) => el.remove());
   });
 
@@ -88,6 +91,7 @@ export function initTransitions(field, { reduced = false } = {}) {
     evento.preventDefault();
     const destino = link.href;
     gravarSinal();
+    stopScroll();
 
     let saiu = false;
     const sair = () => {

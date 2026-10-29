@@ -6,6 +6,7 @@ import { SplitText } from 'gsap/SplitText';
 
 import { initMagnetic } from './fx/magnetic.js';
 import { initReveal } from './fx/reveal.js';
+import { initSmoothScroll } from './fx/smooth-scroll.js';
 import { initTransitions } from './fx/transitions.js';
 import { HalftoneField } from './gl/field.js';
 
@@ -29,6 +30,7 @@ function createField() {
   return field;
 }
 
+initSmoothScroll({ reduced });
 const field = createField();
 const ready = initTransitions(field, { reduced });
 

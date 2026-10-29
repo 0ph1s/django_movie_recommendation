@@ -145,7 +145,7 @@ Sem bundler: módulos ES nativos servidos pelo Django, com um *import map* para 
 
 ```powershell
 npm install
-npm run build        # copia o GSAP para static/vendor e compila o Tailwind (minificado)
+npm run build        # copia GSAP e Lenis para static/vendor e compila o Tailwind (minificado)
 npm run watch:css    # recompila o CSS a cada mudança
 python manage.py runserver --nostatic   # estáticos sem cache (ver recomendador_filmes/urls.py)
 ```
@@ -155,7 +155,9 @@ python manage.py runserver --nostatic   # estáticos sem cache (ver recomendador
   caractere ASCII de densidade equivalente (de um atlas gerado em canvas), na cor da tinta
   dominante. Os mesmos caracteres fazem a transição entre páginas.
 - `static/js/fx/`: botões magnéticos, inclinação 3D dos pôsteres, revelação de títulos (SplitText +
-  ScrollTrigger) e transições entre páginas.
+  ScrollTrigger), transições entre páginas e rolagem suave com [Lenis](https://github.com/darkroomengineering/lenis),
+  que mantém a rolagem nativa (sticky e âncoras continuam funcionando) e só suaviza roda e trackpad.
+  Áreas com rolagem própria usam `data-lenis-prevent`.
 - `static/js/pages/`: a página inicial e o playground (com reordenação animada via Flip).
 
 Tudo respeita `prefers-reduced-motion`. Sem WebGL, o site funciona com fundo liso e transição por fade.
@@ -203,7 +205,8 @@ e os estáticos via WhiteNoise) e um Postgres do Neon instalado pelo Marketplace
 
    ```powershell
    $env:DATABASE_URL = "postgresql://..."   # a mesma do Vercel (vercel env pull)
-   cd Djangoecomendador_filmes
+   cd Django
+ecomendador_filmes
    python manage.py migrate
    python manage.py import_dataset --no-index
    python manage.py fetch_posters          # opcional, com TMDB_API_KEY
