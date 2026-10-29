@@ -1,9 +1,7 @@
 {% extends 'base.html' %}
 {% load humanize %}
 
-{% block title %}Playground | Ângulo
-<a href="#painel" class="fixed bottom-4 right-4 z-30 rounded-full bg-cyan px-5 py-3 text-sm font-semibold text-night shadow-lg shadow-night/60 lg:hidden">Ver recomendações</a>
-{% endblock %}
+{% block title %}Playground | Ângulo{% endblock %}
 
 {% block content %}
 <div class="mx-auto max-w-[1600px] px-4 pb-24 sm:px-8" data-playground>
@@ -123,4 +121,6 @@
     </aside>
   </div>
 </div>
+
+<a href="#painel" class="fixed bottom-4 right-4 z-30 rounded-full bg-cyan px-5 py-3 text-sm font-semibold text-night shadow-lg shadow-night/60 lg:hidden">Ver recomendações</a>
 {% endblock %}

@@ -1,4 +1,4 @@
-// Fundo WebGL em retícula/ASCII, reativo ao cursor e à rolagem.
+// Fundo WebGL em caracteres ASCII, reativo ao cursor e à rolagem.
 //
 // O estado visual fica em `field.state` (objeto simples), para que o GSAP possa
 // animá-lo diretamente: gsap.to(field.state, { density: 0.4 }).
@@ -23,7 +23,6 @@ export class HalftoneField {
       density: 0,
       cyan: 0.6,
       amber: 1,
-      mode: 0,          // 0 retícula, 1 ASCII
       veil: 0,
       focusX: 0.8,
       focusY: 0.78,
@@ -62,7 +61,7 @@ export class HalftoneField {
     this.uniforms = {
       field: this.#locations(this.fieldProgram, ['uRes', 'uFieldRes', 'uTime', 'uMouse', 'uForce', 'uScroll', 'uFocus']),
       composite: this.#locations(this.compositeProgram, [
-        'uField', 'uGlyphs', 'uRes', 'uCell', 'uMode', 'uDensity', 'uCyan', 'uAmber', 'uVeil',
+        'uField', 'uGlyphs', 'uRes', 'uCell', 'uDensity', 'uCyan', 'uAmber', 'uVeil',
         'uGlyphCount', 'uSilverInk', 'uCyanInk', 'uAmberInk', 'uNight',
       ]),
     };
@@ -86,7 +85,7 @@ export class HalftoneField {
     this.canvas.height = this.height;
     this.cell = CELL_CSS_PX * dpr;
 
-    // A passada do campo só precisa de ~1,5 texel por célula da grade mais fina.
+    // A passada do campo só precisa de ~1,5 texel por célula de caractere.
     const gl = this.gl;
     this.fieldWidth = Math.ceil(this.width / (this.cell * 0.6));
     this.fieldHeight = Math.ceil(this.height / (this.cell * 0.6));
@@ -143,7 +142,7 @@ export class HalftoneField {
     gl.uniform3f(f.uFocus, s.focusX, s.focusY, s.focusStrength);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-    // Passada 2: retícula / ASCII na resolução da tela.
+    // Passada 2: caracteres ASCII na resolução da tela.
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, this.width, this.height);
     gl.clearColor(0, 0, 0, 0);
@@ -159,7 +158,6 @@ export class HalftoneField {
     gl.uniform1i(c.uGlyphs, 1);
     gl.uniform2f(c.uRes, this.width, this.height);
     gl.uniform1f(c.uCell, this.cell);
-    gl.uniform1f(c.uMode, s.mode);
     gl.uniform1f(c.uDensity, s.density);
     gl.uniform1f(c.uCyan, s.cyan);
     gl.uniform1f(c.uAmber, s.amber);

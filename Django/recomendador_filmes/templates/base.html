@@ -37,10 +37,6 @@
     <nav class="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-5 sm:px-8" aria-label="Principal">
       <a href="{% url 'web:home' %}" class="display text-[2rem] font-black leading-none tracking-tight" aria-label="Ângulo, página inicial">Ângulo</a>
       <div class="flex items-center gap-3 sm:gap-6">
-        <div class="seg hidden sm:inline-flex" role="group" aria-label="Estilo do fundo">
-          <button type="button" data-field-mode="halftone" aria-pressed="true">Retícula</button>
-          <button type="button" data-field-mode="ascii" aria-pressed="false">ASCII</button>
-        </div>
         {% if page != 'playground' %}
           <a href="{% url 'web:playground' %}" class="magnetic rounded-full bg-silver px-5 py-2.5 text-sm font-semibold text-night" data-magnetic>
             <span class="magnetic__label">Abrir o playground</span>
@@ -58,8 +54,11 @@
 
   <footer class="relative z-10 border-t border-rule">
     <div class="mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-8 text-sm text-dim sm:flex-row sm:justify-between sm:px-8">
-      <p>Filmes do TMDB 5000 Movie Dataset. Séries e animes de amostras nos formatos do TMDB e do MyAnimeList.</p>
-      <p>Similaridade do cosseno com Django, scikit-learn e NumPy.</p>
+      <div class="max-w-2xl space-y-1">
+        <p>Filmes do TMDB 5000 Movie Dataset. Séries e animes de amostras nos formatos do TMDB e do MyAnimeList.</p>
+        <p>Capas de filmes e séries: <a class="underline underline-offset-4 hover:text-silver" href="https://www.themoviedb.org/" rel="noopener" target="_blank">TMDB</a>. Este produto usa a API do TMDB, mas não é endossado nem certificado pelo TMDB. Capas de animes: <a class="underline underline-offset-4 hover:text-silver" href="https://anilist.co/" rel="noopener" target="_blank">AniList</a>.</p>
+      </div>
+      <p class="shrink-0">Similaridade do cosseno com Django, scikit-learn e NumPy.</p>
     </div>
   </footer>
 

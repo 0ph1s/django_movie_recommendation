@@ -5,7 +5,8 @@
  * Sistema visual: impressão em duas tintas sobre papel azul-da-prússia.
  *   ciano  = similaridade (o cosseno)
  *   âmbar  = qualidade (nota bayesiana + popularidade)
- * A retícula (o ponto) é a unidade de tudo: fundo, transição de página, pôsteres e gráficos.
+ * O fundo e a transição de página são desenhados em caracteres ASCII (WebGL); pôsteres e
+ * gráficos usam retícula em CSS/SVG.
  */
 @import "tailwindcss" source(none);
 @source "../templates";
@@ -126,14 +127,16 @@
     -webkit-mask-image: var(--mask);
     transform: translateZ(0);
   }
+  /* Capa original, em cores. Um pouco maior que o cartão para a paralaxe do tilt não
+     revelar as bordas. */
   .poster__image {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    inset: -3%;
+    width: 106%;
+    height: 106%;
+    max-width: none;
     object-fit: cover;
-    filter: grayscale(1) contrast(1.1) brightness(0.8);
-    mix-blend-mode: luminosity;
+    background: var(--color-deep);
   }
   .poster__glare {
     position: absolute;

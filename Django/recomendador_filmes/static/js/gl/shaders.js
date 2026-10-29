@@ -4,10 +4,10 @@
 //   R = campo principal (ruído com domain warping)  -> tinta prata
 //   G = curvas de nível do campo                    -> tinta ciano (similaridade)
 //   B = ondulação em torno do cursor                -> tinta âmbar (interação)
-// Passada 2 (COMPOSITE): amostra esses tons no centro de cada célula e desenha a
-// retícula (um ponto por célula, raio ∝ √tom, cada tinta num ângulo, como na
-// impressão em cores) ou caracteres ASCII escolhidos pelo tom. Também desenha a
-// cortina da transição de página, que cobre a tela com pontos da cor do fundo.
+// Passada 2 (COMPOSITE): divide a tela em células do tamanho de um caractere, lê os
+// tons no centro de cada uma e desenha o caractere ASCII de densidade equivalente
+// (" " no vazio, "@" no pleno), na cor da tinta dominante. Também desenha a cortina
+// da transição de página, que cobre a tela com caracteres da cor do fundo.
 
 export const VERTEX = /* glsl */ `
 attribute vec2 aPos;
@@ -121,8 +121,7 @@ precision highp float;
 uniform sampler2D uField;
 uniform sampler2D uGlyphs;
 uniform vec2 uRes;
-uniform float uCell;       // tamanho da célula em pixels do dispositivo
-uniform float uMode;       // 0 = retícula, 1 = ASCII (valores intermediários misturam)
+uniform float uCell;       // tamanho base da célula em pixels do dispositivo
 uniform float uDensity;    // intensidade geral das tintas
 uniform float uCyan;
 uniform float uAmber;
@@ -133,32 +132,10 @@ uniform vec3 uCyanInk;
 uniform vec3 uAmberInk;
 uniform vec3 uNight;
 
-mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
-
-// Um ponto por célula de uma grade girada; tom lido no centro da célula.
-float halftone(vec2 frag, float angulo, float celula, vec4 canal, float ganho, float extra) {
-  mat2 R = rot(angulo);
-  vec2 g = R * frag / celula;
-  vec2 centro = ((floor(g) + 0.5) * celula) * R;  // v * R = rotação inversa
-  float tom = clamp(dot(texture2D(uField, centro / uRes), canal) * ganho + extra, 0.0, 1.0);
-  float raio = sqrt(tom) * 0.74;  // 0,74 > √2/2: tom 1 cobre a célula inteira
-  float aa = 1.1 / celula;
-  return 1.0 - smoothstep(raio - aa, raio + aa, length(fract(g) - 0.5));
-}
-
-float ascii(vec2 frag, float celula, out vec3 cor) {
-  vec2 tamanho = vec2(celula * 0.82, celula * 1.3);
-  vec2 id = floor(frag / tamanho);
-  vec2 local = fract(frag / tamanho);
-  vec4 f = texture2D(uField, (id + 0.5) * tamanho / uRes);
-  float prata = f.r * uDensity;
-  float ciano = f.g * uCyan * uDensity;
-  float ambar = f.b * uAmber * (0.35 + 0.65 * uDensity);
-  float tom = clamp(max(prata, max(ciano, ambar)), 0.0, 1.0);
-  float indice = floor(tom * (uGlyphCount - 0.001));
-  float glifo = texture2D(uGlyphs, vec2((indice + local.x) / uGlyphCount, 1.0 - local.y)).r;
-  cor = ambar >= max(prata, ciano) ? uAmberInk : (ciano >= prata ? uCyanInk : uSilverInk);
-  return glifo;
+// Cobertura do glifo de densidade "tom" (0–1) no ponto "local" da célula.
+float glifo(float tom, vec2 local) {
+  float indice = floor(clamp(tom, 0.0, 1.0) * (uGlyphCount - 0.001));
+  return texture2D(uGlyphs, vec2((indice + local.x) / uGlyphCount, 1.0 - local.y)).r;
 }
 
 // Composição "por cima", com alfa pré-multiplicado.
@@ -169,28 +146,31 @@ void over(inout vec3 cor, inout float alfa, vec3 tinta, float k) {
 
 void main() {
   vec2 frag = gl_FragCoord.xy;
-  vec2 uv = frag / uRes;
+  vec2 tamanho = vec2(uCell * 1.1, uCell * 1.75);  // proporção de um caractere monoespaçado
+  vec2 id = floor(frag / tamanho);
+  vec2 local = fract(frag / tamanho);
+  vec2 centro = (id + 0.5) * tamanho / uRes;
   vec3 cor = vec3(0.0);
   float alfa = 0.0;
 
-  // Cortina: frente diagonal que cresce do canto inferior esquerdo.
+  // Cortina: uma frente diagonal de caracteres cada vez mais densos, na cor do fundo,
+  // que termina em preenchimento sólido.
   if (uVeil > 0.0) {
-    float frente = clamp(uVeil * 1.7 - (uv.x * 0.35 + uv.y * 0.35), 0.0, 1.0);
-    float cobre = halftone(frag, 0.785, uCell * 1.6, vec4(0.0), 0.0, frente);
+    float frente = clamp(uVeil * 1.7 - (centro.x * 0.35 + centro.y * 0.35), 0.0, 1.0);
+    float cobre = frente > 0.97 ? 1.0 : glifo(frente, local);
     over(cor, alfa, uNight, cobre);
   }
 
-  float reticula = 1.0 - uMode;
-  if (reticula > 0.0) {
-    over(cor, alfa, uSilverInk, halftone(frag, 0.785, uCell, vec4(1.0, 0.0, 0.0, 0.0), uDensity, 0.0) * 0.42 * reticula);
-    over(cor, alfa, uCyanInk, halftone(frag, 0.262, uCell * 0.85, vec4(0.0, 1.0, 0.0, 0.0), uDensity * uCyan, 0.0) * 0.9 * reticula);
-    over(cor, alfa, uAmberInk, halftone(frag, 1.309, uCell * 0.9, vec4(0.0, 0.0, 1.0, 0.0), uAmber * (0.35 + 0.65 * uDensity), 0.0) * 0.95 * reticula);
-  }
-  if (uMode > 0.0) {
-    vec3 tinta;
-    float glifo = ascii(frag, uCell * 1.35, tinta);
-    over(cor, alfa, tinta, glifo * 0.88 * uMode);
-  }
+  // Tons do campo no centro da célula; a tinta dominante define a cor do caractere.
+  vec4 f = texture2D(uField, centro);
+  float prata = f.r * uDensity;
+  float ciano = f.g * uCyan * uDensity;
+  float ambar = f.b * uAmber * (0.35 + 0.65 * uDensity);
+  // Um caractere cobre bem menos da célula que um ponto cheio; a curva < 1 compensa,
+  // puxando os tons médios para glifos mais densos.
+  float tom = pow(clamp(max(prata, max(ciano, ambar)), 0.0, 1.0), 0.75);
+  vec3 tinta = ambar >= max(prata, ciano) ? uAmberInk : (ciano >= prata ? uCyanInk : uSilverInk);
+  over(cor, alfa, tinta, glifo(tom, local));
 
   gl_FragColor = vec4(cor, alfa);
 }

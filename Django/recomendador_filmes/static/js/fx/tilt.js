@@ -9,7 +9,7 @@ export function initTilt(raiz = document, { reduced = false } = {}) {
   if (reduced || !finePointer.matches) return;
   raiz.querySelectorAll('[data-tilt]:not([data-tilt-ready])').forEach((card) => {
     card.dataset.tiltReady = '';
-    const tom = card.querySelector('.poster__tone, .poster__image');
+    const tom = card.querySelector('.poster__image') || card.querySelector('.poster__tone');
     const titulo = card.querySelector('[data-tilt-depth]');
     gsap.set(card, { transformPerspective: 900 });
     const rx = gsap.quickTo(card, 'rotationX', { duration: 0.6, ease: 'power3.out' });

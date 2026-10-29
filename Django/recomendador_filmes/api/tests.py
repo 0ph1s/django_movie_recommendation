@@ -137,6 +137,10 @@ class PaginasTests(ApiTestCase):
                 self.assertEqual(resposta.status_code, 200)
                 self.assertContains(resposta, 'data-field')
 
+    def test_titulo_da_pagina_e_so_texto(self):
+        resposta = self.client.get(reverse('web:playground'))
+        self.assertContains(resposta, '<title>Playground | Ângulo</title>')
+
     def test_home_mostra_contagem_e_destaques(self):
         resposta = self.client.get(reverse('web:home'))
         self.assertContains(resposta, 'featured-data')

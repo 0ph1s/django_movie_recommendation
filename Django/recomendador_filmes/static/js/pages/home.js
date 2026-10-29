@@ -5,7 +5,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { initTilt } from '../fx/tilt.js';
 import { splitLines } from '../fx/reveal.js';
 import { esc } from '../lib/format.js';
-import { posterHTML } from '../lib/poster.js';
+import { posterCaption, posterHTML } from '../lib/poster.js';
 
 // Tintas do fundo em cada passo do método: o campo "ilustra" o termo da fórmula em foco.
 const STEP_INKS = {
@@ -145,7 +145,8 @@ function renderFeatured(reduced) {
   alvo.innerHTML = titulos.map((t) => `
     <a href="/playground/?similar=${t.id}" class="group block" aria-label="Ver títulos parecidos com ${esc(t.title)}">
       ${posterHTML(t)}
-      <p class="mt-3 line-clamp-2 text-sm text-dim transition-colors group-hover:text-silver">${esc(t.genres.slice(0, 3).join(', '))}</p>
+      ${posterCaption(t)}
+      <p class="${t.poster_url ? 'mt-0.5' : 'mt-3'} line-clamp-2 text-sm text-dim transition-colors group-hover:text-silver">${esc(t.genres.slice(0, 3).join(', '))}</p>
     </a>`).join('');
   initTilt(alvo, { reduced });
 
