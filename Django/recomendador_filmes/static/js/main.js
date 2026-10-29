@@ -4,6 +4,7 @@ import { Flip } from 'gsap/Flip';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SplitText } from 'gsap/SplitText';
 
+import { runLoader } from './fx/loader.js';
 import { initMagnetic } from './fx/magnetic.js';
 import { initReveal } from './fx/reveal.js';
 import { initSmoothScroll } from './fx/smooth-scroll.js';
@@ -33,15 +34,29 @@ function createField() {
 
 initSmoothScroll({ reduced });
 const field = createField();
-const ready = initTransitions(field, { reduced });
+// O módulo da página começa a carregar já, em paralelo com as fontes.
+const moduloDaPagina = PAGES[document.body.dataset.page]?.();
+const entradaPorTransicao = initTransitions(field, { reduced });
+
+// Na primeira visita da sessão, a tela de carregamento acompanha estas tarefas e, ao sair,
+// faz o papel da transição de entrada.
+const carregamento = runLoader({
+  field,
+  tarefas: [
+    document.fonts.ready,
+    moduloDaPagina,
+    new Promise((resolve) => (document.readyState === 'complete' ? resolve() : addEventListener('load', resolve, { once: true }))),
+  ],
+});
+const ready = carregamento ?? entradaPorTransicao;
 
 // SplitText e medidas de layout dependem das fontes finais.
 document.fonts.ready.then(async () => {
   initMagnetic(document, { reduced });
-  initReveal(document, { reduced });
-  const pagina = PAGES[document.body.dataset.page];
-  if (pagina) {
-    const modulo = await pagina();
+  // Os títulos só se revelam quando a página fica visível (depois do carregamento ou da cortina).
+  ready.then(() => initReveal(document, { reduced }));
+  if (moduloDaPagina) {
+    const modulo = await moduloDaPagina;
     modulo.default({ field, reduced, ready });
   }
 });

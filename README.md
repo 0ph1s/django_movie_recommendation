@@ -156,6 +156,9 @@ python manage.py runserver --nostatic   # estáticos sem cache (ver recomendador
   dominante. Os mesmos caracteres fazem a transição entre páginas: uma onda com a borda em ciano
   cobre a tela enquanto o nome do destino aparece no centro (`data-transition-label` num link troca
   o nome; `data-transition="off"` desliga a transição).
+- `static/js/fx/loader.js`: tela de carregamento da primeira visita de cada sessão. Um contador
+  de 000 a 100 e uma barra de caracteres ASCII acompanham as fontes, o módulo da página e os
+  recursos (mínimo de 1,4 s, máximo de 7 s); ao sair, a cortina ASCII recua e revela o site.
 - `static/js/fx/`: botões magnéticos, inclinação 3D dos pôsteres, revelação de títulos (SplitText +
   ScrollTrigger), transições entre páginas e rolagem suave com [Lenis](https://github.com/darkroomengineering/lenis),
   que mantém a rolagem nativa (sticky e âncoras continuam funcionando) e só suaviza roda e trackpad.
