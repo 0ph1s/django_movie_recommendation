@@ -2,8 +2,8 @@
 
 Plataforma de recomendação baseada em **similaridade do cosseno**, com **filtro híbrido**
 (semelhança + qualidade) e **perfil de usuário dinâmico**. Backend em Django + scikit-learn;
-front-end em Tailwind CSS v4, GSAP (ScrollTrigger, SplitText, Flip) e um shader WebGL em
-retícula/ASCII.
+front-end em Tailwind CSS v4, GSAP (ScrollTrigger, SplitText, Flip) e um shader WebGL que
+desenha o fundo em caracteres ASCII.
 
 - **Página inicial**: hero com o campo WebGL reagindo ao cursor e à rolagem, e uma seção que
   explica o cálculo passo a passo enquanto a fórmula e as tintas do fundo mudam com o scroll.
@@ -62,6 +62,27 @@ O que a importação trata:
   videoclipes ficam de fora.
 - **Popularidade comparável**: o percentil dentro de cada tipo, já que o índice do TMDB e os
   membros do MAL estão em escalas sem relação.
+
+## Capas
+
+As capas originais são buscadas por um comando à parte e exibidas em cores. Sem capa, ou se a
+imagem não carregar, aparece o pôster gerado em retícula.
+
+```powershell
+$env:TMDB_API_KEY = "sua-chave"          # filmes e séries; chave v3 ou token v4 do TMDB
+python manage.py fetch_posters           # só os títulos que ainda não têm capa
+python manage.py fetch_posters --kinds anime   # animes não precisam de chave
+```
+
+- **Filmes e séries**: API do TMDB. O `id` do dataset já é o ID da API. A chave é gratuita em
+  themoviedb.org (Configurações → API). Para guardá-la de vez no Windows:
+  `setx TMDB_API_KEY "sua-chave"` (vale para os terminais abertos depois).
+- **Animes**: API GraphQL da AniList, pelo ID do MyAnimeList, 50 títulos por requisição, sem chave.
+- Opções: `--kinds`, `--limit` (os N mais populares), `--refresh` (busca de novo os que já têm)
+  e `--workers`. O comando respeita os limites de cada API, repete em caso de erro temporário
+  e grava em lotes, então pode ser interrompido e retomado.
+- As imagens são carregadas direto dos servidores do TMDB e da AniList (nada é baixado), e
+  reimportar os CSVs não apaga as capas já buscadas.
 
 ## O algoritmo
 
@@ -130,11 +151,11 @@ python manage.py runserver --nostatic   # estáticos sem cache (ver recomendador
 ```
 
 - `static/js/gl/`: o campo WebGL em duas passadas. A primeira calcula ruído com *domain warping*,
-  curvas de nível e a lente do cursor em baixa resolução; a segunda desenha a retícula em três
-  tintas (ângulos diferentes, como na impressão em cores) ou caracteres ASCII de um atlas gerado
-  em canvas. A mesma retícula faz a transição entre páginas.
+  curvas de nível e a lente do cursor em baixa resolução; a segunda troca cada célula pelo
+  caractere ASCII de densidade equivalente (de um atlas gerado em canvas), na cor da tinta
+  dominante. Os mesmos caracteres fazem a transição entre páginas.
 - `static/js/fx/`: botões magnéticos, inclinação 3D dos pôsteres, revelação de títulos (SplitText +
-  ScrollTrigger), transições e alternância retícula/ASCII.
+  ScrollTrigger) e transições entre páginas.
 - `static/js/pages/`: a página inicial e o playground (com reordenação animada via Flip).
 
 Tudo respeita `prefers-reduced-motion`. Sem WebGL, o site funciona com fundo liso e transição por fade.
@@ -169,6 +190,29 @@ Django/recomendador_filmes/
 └── data/                    # CSVs
 ```
 
+## Deploy no Vercel
+
+O projeto roda no Vercel com o suporte nativo a Django (uma função Python serve o site, a API
+e os estáticos via WhiteNoise) e um Postgres do Neon instalado pelo Marketplace do Vercel.
+
+1. Crie o projeto a partir do repositório com **Root Directory** = `Django/recomendador_filmes`
+   (onde estão `manage.py`, `requirements.txt` e `vercel.json`).
+2. Em *Storage*, adicione um banco **Neon** ao projeto: ele cria a variável `DATABASE_URL`.
+3. Em *Settings → Environment Variables*, defina `DJANGO_SECRET_KEY` (um valor longo e aleatório).
+4. Popule o banco a partir da sua máquina, apontando para o Neon:
+
+   ```powershell
+   $env:DATABASE_URL = "postgresql://..."   # a mesma do Vercel (vercel env pull)
+   cd Djangoecomendador_filmes
+   python manage.py migrate
+   python manage.py import_dataset --no-index
+   python manage.py fetch_posters          # opcional, com TMDB_API_KEY
+   ```
+
+Detalhes: no Vercel, `DEBUG` fica desligado por padrão, os domínios `*.vercel.app` são aceitos
+automaticamente e o índice de recomendação é reconstruído em `/tmp` no primeiro acesso de cada
+instância (alguns segundos; as seguintes levam milissegundos).
+
 ## Configuração para produção
 
 | Variável               | Padrão                | Descrição                                   |
@@ -176,5 +220,8 @@ Django/recomendador_filmes/
 | `DJANGO_SECRET_KEY`    | chave insegura de dev | Chave secreta do Django                     |
 | `DJANGO_DEBUG`         | `True`                | Use `False` em produção                     |
 | `DJANGO_ALLOWED_HOSTS` | vazio                 | Hosts separados por vírgula                 |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | vazio          | Origens HTTPS extras, separadas por vírgula  |
+| `DATABASE_URL`         | SQLite local          | Banco remoto (ex.: Postgres do Neon)        |
+| `TMDB_API_KEY`         | vazio                 | Só para `fetch_posters`                     |
 
 Em produção, rode `python manage.py collectstatic` e sirva `staticfiles/` pelo servidor web.

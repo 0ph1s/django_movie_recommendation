@@ -13,8 +13,14 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 
+import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# O Vercel define VERCEL=1 nas funções e nos builds.
+ON_VERCEL = bool(os.environ.get('VERCEL'))
 
 
 # Quick-start development settings - unsuitable for production
@@ -28,9 +34,30 @@ SECRET_KEY = os.environ.get(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('1', 'true', 'yes')
+# No Vercel o padrão é DEBUG desligado; localmente, ligado.
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False' if ON_VERCEL else 'True').lower() in ('1', 'true', 'yes')
+
+if not DEBUG and SECRET_KEY.startswith('django-insecure'):
+    raise ImproperlyConfigured('Defina DJANGO_SECRET_KEY para rodar com DEBUG desligado.')
 
 ALLOWED_HOSTS = [host for host in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if host]
+CSRF_TRUSTED_ORIGINS = [
+    origem for origem in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if origem
+]
+if ON_VERCEL:
+    # Domínios *.vercel.app de produção e de preview, mais os domínios próprios do projeto.
+    ALLOWED_HOSTS += ['.vercel.app']
+    CSRF_TRUSTED_ORIGINS += ['https://*.vercel.app']
+    for variavel in ('VERCEL_URL', 'VERCEL_BRANCH_URL', 'VERCEL_PROJECT_PRODUCTION_URL'):
+        if os.environ.get(variavel):
+            ALLOWED_HOSTS.append(os.environ[variavel])
+            CSRF_TRUSTED_ORIGINS.append(f'https://{os.environ[variavel]}')
+
+if not DEBUG:
+    # Atrás do proxy HTTPS do Vercel (ou de outro balanceador).
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 
 # Application definition
@@ -51,6 +78,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -83,12 +111,22 @@ WSGI_APPLICATION = 'recomendador_filmes.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Com DATABASE_URL (Postgres do Neon no Vercel), usa o banco remoto; sem ela, o SQLite local.
+# As conexões são reaproveitadas entre requisições da mesma instância da função.
+if os.environ.get('DATABASE_URL'):
+    DATABASES = {'default': dj_database_url.config(conn_max_age=60, conn_health_checks=True)}
+    # A DATABASE_URL do Neon passa pelo PgBouncer em modo transação, que não suporta cursores
+    # do lado do servidor (usados pelo .iterator() do Django).
+    DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
+else:
+    # No Vercel sem banco configurado (ou durante o build, que lê estas configurações), só /tmp
+    # é gravável: o site sobe, mas com o catálogo vazio até DATABASE_URL ser definida.
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': Path('/tmp/db.sqlite3') if ON_VERCEL else BASE_DIR / 'db.sqlite3',
+        }
     }
-}
 
 
 # Password validation
@@ -129,16 +167,29 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# WhiteNoise serve os estáticos direto de STATICFILES_DIRS (sem collectstatic), o que
+# basta para o Vercel, cuja CDN guarda as respostas conforme o Cache-Control.
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_MAX_AGE = 0 if DEBUG else 3600
+
 
 # Dados e motor de recomendação
 
 # CSVs lidos por `manage.py import_dataset` quando nenhum caminho é informado.
 DATASET_DIR = BASE_DIR / 'data'
 
+# Chave da API do TMDB (v3) ou token de leitura (v4), usada por `manage.py fetch_posters`.
+TMDB_API_KEY = os.environ.get('TMDB_API_KEY', '')
+
 # Pesos e parâmetros do recomendador (ver recommender/config.py para a descrição de cada um).
 # Qualquer chave omitida usa o valor padrão de RecommenderConfig.
+# No Vercel só /tmp é gravável: o índice é reconstruído a partir do banco no primeiro uso de
+# cada instância (alguns segundos) e reaproveitado enquanto ela viver.
 RECOMMENDER = {
-    'INDEX_PATH': BASE_DIR / 'var' / 'recommender_index.joblib',
+    'INDEX_PATH': Path(
+        os.environ.get('RECOMMENDER_INDEX_PATH')
+        or ('/tmp/recommender_index.joblib' if ON_VERCEL else BASE_DIR / 'var' / 'recommender_index.joblib')
+    ),
 }
 
 # Default primary key field type

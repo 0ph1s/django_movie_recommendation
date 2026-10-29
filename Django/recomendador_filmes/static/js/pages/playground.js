@@ -7,7 +7,7 @@ import { initMagnetic } from '../fx/magnetic.js';
 import { initTilt } from '../fx/tilt.js';
 import { api, isAbort } from '../lib/api.js';
 import { debounce, esc, fmt, KIND_LABEL, KIND_PLURAL } from '../lib/format.js';
-import { posterHTML } from '../lib/poster.js';
+import { posterCaption, posterHTML } from '../lib/poster.js';
 
 const PAGE_SIZE = 24;
 const RESULTS = 12;
@@ -204,7 +204,8 @@ class Playground {
           class="block w-full rounded-[4px] text-left ring-offset-4 ring-offset-night group-data-[signal='1']/item:ring-2 group-data-[signal='1']/item:ring-cyan">
           ${posterHTML(t)}
         </button>
-        <p class="mt-2.5 line-clamp-1 text-xs text-dim">${esc(t.genres.slice(0, 3).join(', ') || KIND_LABEL[t.kind])}</p>
+        ${posterCaption(t)}
+        <p class="${t.poster_url ? 'mt-0.5' : 'mt-2.5'} line-clamp-1 text-xs text-dim">${esc(t.genres.slice(0, 3).join(', ') || KIND_LABEL[t.kind])}</p>
         ${this.actions(t, sinal, { similar: false })}
       </li>`;
   }

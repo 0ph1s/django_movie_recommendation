@@ -26,3 +26,7 @@ node_modules/
 # Artefatos gerados pelo Django
 var/
 staticfiles/
+
+# Variáveis puxadas do Vercel (vercel env pull)
+.env*.local
+.vercel/

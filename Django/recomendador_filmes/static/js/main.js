@@ -5,7 +5,6 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SplitText } from 'gsap/SplitText';
 
 import { initMagnetic } from './fx/magnetic.js';
-import { initModeSwitch } from './fx/mode-switch.js';
 import { initReveal } from './fx/reveal.js';
 import { initTransitions } from './fx/transitions.js';
 import { HalftoneField } from './gl/field.js';
@@ -31,7 +30,6 @@ function createField() {
 }
 
 const field = createField();
-initModeSwitch(field);
 const ready = initTransitions(field, { reduced });
 
 // SplitText e medidas de layout dependem das fontes finais.

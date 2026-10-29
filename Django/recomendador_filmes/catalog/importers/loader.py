@@ -11,8 +11,7 @@ from ..models import Genre, Title
 BATCH_SIZE = 500
 _UPSERT_FIELDS = [
     'title', 'original_title', 'overview', 'tagline', 'keywords', 'cast', 'director',
-    'year', 'runtime', 'episodes', 'vote_average', 'vote_count', 'popularity',
-    'poster_url', 'updated_at',
+    'year', 'runtime', 'episodes', 'vote_average', 'vote_count', 'popularity', 'updated_at',
 ]
 
 
@@ -56,6 +55,15 @@ def save_records(registros):
         ).values_list('pk', 'source', 'kind', 'external_id')
         if (source, kind, external_id) in chaves
     }
+
+    # A capa só é sobrescrita quando o CSV traz uma: assim, reimportar o TMDB 5000 (que não
+    # tem capas) preserva as que `fetch_posters` buscou.
+    com_capa = [r for r in registros if r.poster_url]
+    Title.objects.bulk_update(
+        [Title(pk=ids[(r.source, r.kind, r.external_id)], poster_url=r.poster_url) for r in com_capa],
+        ['poster_url'],
+        batch_size=BATCH_SIZE,
+    )
 
     Ligacao = Title.genres.through
     Ligacao.objects.filter(title_id__in=ids.values()).delete()
