@@ -31,6 +31,9 @@
   html {
     color-scheme: dark;
     -webkit-text-size-adjust: 100%;
+    /* Reserva sempre o espaço da barra de rolagem: o layout não muda de largura entre
+       páginas com e sem rolagem. */
+    scrollbar-gutter: stable;
   }
 
   body {
@@ -74,13 +77,12 @@
   }
 }
 
-/* Lenis (rolagem suave): CSS recomendado pelo pacote. */
+/* Lenis (rolagem suave): CSS recomendado pelo pacote, menos o `overflow: clip` de
+   .lenis-stopped. Ele escondia a barra de rolagem durante a transição de página e o conteúdo
+   pulava para o lado. Parado, o Lenis já bloqueia a roda cancelando o evento. */
 html.lenis,
 html.lenis body {
   height: auto;
-}
-.lenis:not(.lenis-autoToggle).lenis-stopped {
-  overflow: clip;
 }
 .lenis [data-lenis-prevent] {
   overscroll-behavior: contain;
