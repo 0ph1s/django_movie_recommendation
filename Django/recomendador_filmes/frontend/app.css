@@ -74,6 +74,21 @@
   }
 }
 
+/* Lenis (rolagem suave): CSS recomendado pelo pacote. */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
 @keyframes intro-fallback {
   to { visibility: visible; }
 }

@@ -4,6 +4,7 @@ import { gsap } from 'gsap';
 import { Flip } from 'gsap/Flip';
 
 import { initMagnetic } from '../fx/magnetic.js';
+import { scrollToElement } from '../fx/smooth-scroll.js';
 import { initTilt } from '../fx/tilt.js';
 import { api, isAbort } from '../lib/api.js';
 import { debounce, esc, fmt, KIND_LABEL, KIND_PLURAL } from '../lib/format.js';
@@ -361,7 +362,7 @@ class Playground {
     this.similar = card;
     this.mode = 'similar';
     this.refresh();
-    if (window.innerWidth < 1024) $('[data-panel]').scrollIntoView({ behavior: this.reduced ? 'auto' : 'smooth' });
+    if (window.innerWidth < 1024) scrollToElement($('[data-panel]'));
   }
 
   async refresh() {
