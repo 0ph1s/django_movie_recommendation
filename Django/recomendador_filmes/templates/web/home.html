@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<section class="relative flex min-h-[calc(100svh-5rem)] flex-col justify-end px-4 pb-12 sm:px-8" data-hero>
+  <div class="pointer-events-none absolute inset-x-0 bottom-0 h-3/4 bg-linear-to-t from-night via-night/75 to-transparent" aria-hidden="true"></div>
+  <div class="relative mx-auto w-full max-w-[1600px]">
+    <h1 class="display max-w-[12ch] text-[clamp(4.75rem,15.5vw,15.5rem)] font-black" data-hero-title>Seu gosto é um vetor.</h1>
+    <div class="mt-10 grid gap-8 md:grid-cols-[minmax(0,36rem)_1fr] md:items-end">
+      <p class="text-lg leading-relaxed text-silver/85 sm:text-xl" data-hero-copy>
+        Marque o que você já viu. O Ângulo mede o cosseno entre o seu perfil e cada um dos
+        {{ total_titles|intcomma }} títulos do catálogo{% if counts %} ({% for c in counts %}{{ c.total|intcomma }} {% if c.kind == 'movie' %}filmes{% elif c.kind == 'series' %}séries{% else %}animes{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}){% endif %}
+        e devolve os mais próximos, sem trazer título obscuro ou mal avaliado.
+      </p>
+      <div class="flex flex-wrap items-center gap-3 md:justify-end" data-hero-actions>
+        <a href="{% url 'web:playground' %}" class="magnetic rounded-full bg-cyan px-7 py-4 text-base font-semibold text-night" data-magnetic>
+          <span class="magnetic__label">Montar meu perfil</span>
+        </a>
+        <a href="#metodo" class="magnetic rounded-full border border-rule px-7 py-4 text-base text-silver hover:border-silver/60" data-magnetic data-transition="off">
+          <span class="magnetic__label">Como o cálculo funciona</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="metodo" class="relative scroll-mt-8 px-4 py-28 sm:px-8 sm:py-40" data-method>
+  <div class="mx-auto grid max-w-[1600px] gap-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-24">
+    <div class="lg:sticky lg:top-16 lg:self-start">
+      <h2 class="display text-[clamp(3rem,7vw,7.5rem)]" data-reveal>Como uma recomendação é calculada</h2>
+      <div class="mt-12 rounded-sm border border-rule bg-night/70 p-6 backdrop-blur-sm sm:p-8">
+        <p class="display text-[clamp(1.75rem,3.4vw,3.25rem)] font-bold leading-[1.05]" aria-label="score igual a alfa vezes o cosseno entre perfil e título, mais um menos alfa vezes a qualidade">
+          <span data-term="score">score</span> =
+          <span class="whitespace-nowrap"><span data-term="alpha">α</span>·<span class="text-cyan" data-term="sim">cos(perfil, título)</span></span>
+          + <span class="whitespace-nowrap">(1 − <span data-term="alpha">α</span>)·<span class="text-amber" data-term="quality">qualidade</span></span>
+        </p>
+        <div class="mt-8 flex items-center gap-4 text-sm text-dim">
+          <span class="w-16 tabular-nums text-silver" data-alpha-readout>α = 0,75</span>
+          <div class="inkbar flex-1" aria-hidden="true">
+            <span class="inkbar__sim" data-alpha-sim style="width:75%"></span>
+            <span class="inkbar__quality" data-alpha-quality style="width:25%"></span>
+          </div>
+        </div>
+        <p class="mt-4 text-sm leading-relaxed text-dim">
+          A parte ciano mede o quanto o título se parece com o que você curtiu. A parte âmbar
+          mede o quanto ele é bem avaliado e conhecido no próprio tipo.
+        </p>
+      </div>
+    </div>
+
+    <ol class="flex flex-col gap-[22vh] pb-[12vh] lg:pt-[18vh]" data-steps>
+      <li data-step="text" data-terms="sim">
+        <p class="display text-6xl text-rule" aria-hidden="true">1</p>
+        <h3 class="mt-3 text-2xl font-semibold">A sinopse vira números</h3>
+        <p class="mt-3 max-w-[52ch] text-lg leading-relaxed text-silver/80">
+          Cada sinopse vira um vetor TF-IDF: palavras que aparecem em poucos títulos, como
+          “heist” ou “samurai”, pesam mais do que palavras que aparecem em todos.
+        </p>
+      </li>
+      <li data-step="tags" data-terms="sim">
+        <p class="display text-6xl text-rule" aria-hidden="true">2</p>
+        <h3 class="mt-3 text-2xl font-semibold">Gênero, elenco, direção e época entram no mesmo vetor</h3>
+        <p class="mt-3 max-w-[52ch] text-lg leading-relaxed text-silver/80">
+          Gêneros, palavras-chave, atores e direção (ou estúdio, no caso dos animes) viram
+          etiquetas. Ano, faixa de nota e tipo viram atributos numéricos. Cada bloco tem o
+          seu peso: {{ weights.synopsis }}% sinopse, {{ weights.tags }}% etiquetas, {{ weights.attributes }}% atributos.
+        </p>
+      </li>
+      <li data-step="cosine" data-terms="sim">
+        <p class="display text-6xl text-rule" aria-hidden="true">3</p>
+        <h3 class="mt-3 text-2xl font-semibold">O cosseno mede a direção, não o tamanho</h3>
+        <p class="mt-3 max-w-[52ch] text-lg leading-relaxed text-silver/80">
+          Dois títulos apontando para o mesmo lado no espaço de {{ total_genres }} gêneros e
+          milhares de termos têm cosseno perto de 1. Sem nada em comum, o cosseno é 0.
+        </p>
+      </li>
+      <li data-step="hybrid" data-terms="alpha quality">
+        <p class="display text-6xl text-rule" aria-hidden="true">4</p>
+        <h3 class="mt-3 text-2xl font-semibold">A qualidade entra na mistura</h3>
+        <p class="mt-3 max-w-[52ch] text-lg leading-relaxed text-silver/80">
+          Só a semelhança traria qualquer filme parecido, mesmo um com três votos. Por isso
+          os candidatos mais parecidos são reordenados por uma nota bayesiana (que desconfia
+          de poucas avaliações) e pela popularidade dentro do próprio tipo.
+        </p>
+      </li>
+      <li data-step="profile" data-terms="sim score">
+        <p class="display text-6xl text-rule" aria-hidden="true">5</p>
+        <h3 class="mt-3 text-2xl font-semibold">Cada clique move o seu perfil</h3>
+        <p class="mt-3 max-w-[52ch] text-lg leading-relaxed text-silver/80">
+          O seu perfil é a média dos vetores do que você curtiu, menos metade da média do que
+          não curtiu. As marcações mais recentes pesam mais. Não há treino: a próxima
+          recomendação já usa o vetor novo.
+        </p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+{% if featured %}
+<section class="px-4 py-24 sm:px-8">
+  <div class="mx-auto max-w-[1600px]">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <h2 class="display text-[clamp(2.75rem,6vw,6rem)]" data-reveal>Comece por um destes</h2>
+      <p class="max-w-sm text-dim">Escolha um título para ver o que está mais perto dele, filme, série ou anime.</p>
+    </div>
+    <div class="mt-12 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-6" data-featured></div>
+  </div>
+</section>
+{% endif %}
+
+<section class="px-4 pb-28 pt-12 sm:px-8">
+  <div class="mx-auto max-w-[1600px] border-t border-rule pt-12">
+    <a href="{% url 'web:playground' %}" class="magnetic display text-[clamp(3.5rem,11vw,11rem)] font-black hover:text-cyan" data-magnetic data-magnetic-strength="0.15">
+      <span class="magnetic__label">Abrir o playground</span>
+    </a>
+  </div>
+</section>
+{% endblock %}
+
+{% block data %}{{ featured|json_script:'featured-data' }}{% endblock %}

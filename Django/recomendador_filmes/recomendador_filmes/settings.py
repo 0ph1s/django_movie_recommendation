@@ -42,7 +42,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'filmes'
+    'django.contrib.humanize',
+    'catalog',
+    'recommender',
+    'api',
+    'web',
 ]
 
 MIDDLEWARE = [
@@ -122,6 +126,20 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+
+# Dados e motor de recomendação
+
+# CSVs lidos por `manage.py import_dataset` quando nenhum caminho é informado.
+DATASET_DIR = BASE_DIR / 'data'
+
+# Pesos e parâmetros do recomendador (ver recommender/config.py para a descrição de cada um).
+# Qualquer chave omitida usa o valor padrão de RecommenderConfig.
+RECOMMENDER = {
+    'INDEX_PATH': BASE_DIR / 'var' / 'recommender_index.joblib',
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

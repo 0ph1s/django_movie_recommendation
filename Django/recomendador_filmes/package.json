@@ -1,0 +1,17 @@
+{
+  "name": "angulo-frontend",
+  "private": true,
+  "description": "Pipeline de front-end do Ângulo: Tailwind CSS v4 + módulos ESM do GSAP copiados para static/.",
+  "type": "module",
+  "scripts": {
+    "build": "npm run vendor && npm run build:css",
+    "build:css": "tailwindcss -i ./frontend/app.css -o ./static/css/app.css --minify",
+    "watch:css": "tailwindcss -i ./frontend/app.css -o ./static/css/app.css --watch=always",
+    "vendor": "node ./frontend/vendor.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.3",
+    "gsap": "3.15.0",
+    "tailwindcss": "4.3.3"
+  }
+}
