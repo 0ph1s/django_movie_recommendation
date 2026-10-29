@@ -115,6 +115,9 @@ WSGI_APPLICATION = 'recomendador_filmes.wsgi.application'
 # As conexões são reaproveitadas entre requisições da mesma instância da função.
 if os.environ.get('DATABASE_URL'):
     DATABASES = {'default': dj_database_url.config(conn_max_age=60, conn_health_checks=True)}
+    # A DATABASE_URL do Neon passa pelo PgBouncer em modo transação, que não suporta cursores
+    # do lado do servidor (usados pelo .iterator() do Django).
+    DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
 else:
     # No Vercel sem banco configurado (ou durante o build, que lê estas configurações), só /tmp
     # é gravável: o site sobe, mas com o catálogo vazio até DATABASE_URL ser definida.
