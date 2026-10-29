@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "recomendador_filmes/wsgi.py": {
+      "maxDuration": 60,
+      "excludeFiles": "{data/**,frontend/**,node_modules/**,var/**,db.sqlite3,**/tests/**,**/tests.py}"
+    }
+  }
+}

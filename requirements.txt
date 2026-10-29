@@ -1,6 +1,2 @@
-Django>=5.2,<6.0
-pandas>=2.2
-numpy>=2.0
-scipy>=1.13
-scikit-learn>=1.5
-joblib>=1.4
+# As dependências ficam junto do manage.py, que é a pasta raiz do projeto no Vercel.
+-r Django/recomendador_filmes/requirements.txt

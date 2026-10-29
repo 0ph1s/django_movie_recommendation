@@ -190,6 +190,29 @@ Django/recomendador_filmes/
 └── data/                    # CSVs
 ```
 
+## Deploy no Vercel
+
+O projeto roda no Vercel com o suporte nativo a Django (uma função Python serve o site, a API
+e os estáticos via WhiteNoise) e um Postgres do Neon instalado pelo Marketplace do Vercel.
+
+1. Crie o projeto a partir do repositório com **Root Directory** = `Django/recomendador_filmes`
+   (onde estão `manage.py`, `requirements.txt` e `vercel.json`).
+2. Em *Storage*, adicione um banco **Neon** ao projeto: ele cria a variável `DATABASE_URL`.
+3. Em *Settings → Environment Variables*, defina `DJANGO_SECRET_KEY` (um valor longo e aleatório).
+4. Popule o banco a partir da sua máquina, apontando para o Neon:
+
+   ```powershell
+   $env:DATABASE_URL = "postgresql://..."   # a mesma do Vercel (vercel env pull)
+   cd Djangoecomendador_filmes
+   python manage.py migrate
+   python manage.py import_dataset --no-index
+   python manage.py fetch_posters          # opcional, com TMDB_API_KEY
+   ```
+
+Detalhes: no Vercel, `DEBUG` fica desligado por padrão, os domínios `*.vercel.app` são aceitos
+automaticamente e o índice de recomendação é reconstruído em `/tmp` no primeiro acesso de cada
+instância (alguns segundos; as seguintes levam milissegundos).
+
 ## Configuração para produção
 
 | Variável               | Padrão                | Descrição                                   |
@@ -197,5 +220,8 @@ Django/recomendador_filmes/
 | `DJANGO_SECRET_KEY`    | chave insegura de dev | Chave secreta do Django                     |
 | `DJANGO_DEBUG`         | `True`                | Use `False` em produção                     |
 | `DJANGO_ALLOWED_HOSTS` | vazio                 | Hosts separados por vírgula                 |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | vazio          | Origens HTTPS extras, separadas por vírgula  |
+| `DATABASE_URL`         | SQLite local          | Banco remoto (ex.: Postgres do Neon)        |
+| `TMDB_API_KEY`         | vazio                 | Só para `fetch_posters`                     |
 
 Em produção, rode `python manage.py collectstatic` e sirva `staticfiles/` pelo servidor web.
