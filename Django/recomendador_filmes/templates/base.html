@@ -8,8 +8,14 @@
   <meta name="theme-color" content="#0a1322">
   <script>
     document.documentElement.classList.add('js');
-    // Chegando de uma transição: cobre a página até o fundo WebGL assumir a cortina.
-    try { if (sessionStorage.getItem('angulo:veil')) document.documentElement.classList.add('is-entering'); } catch (e) {}
+    try {
+      // Chegando de uma transição: cobre a página até o fundo WebGL assumir a cortina.
+      if (sessionStorage.getItem('angulo:veil')) document.documentElement.classList.add('is-entering');
+      // Primeira página da sessão: tela de carregamento (sem ela para quem reduz movimento).
+      else if (!sessionStorage.getItem('angulo:loaded') && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.documentElement.classList.add('is-loading');
+      }
+    } catch (e) {}
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,6 +36,19 @@
   <script type="module" src="{% static 'js/main.js' %}"></script>
 </head>
 <body data-page="{{ page }}" class="min-h-svh overflow-x-hidden">
+  <div class="loader" data-loader role="status">
+    <span class="sr-only">Carregando o site</span>
+    <div class="mx-auto flex h-full max-w-[1600px] flex-col justify-between px-4 pb-10 pt-5 sm:px-8" aria-hidden="true" data-loader-content>
+      <p class="display text-[2rem] font-black leading-none tracking-tight">Ângulo</p>
+      <div>
+        <p class="display text-[clamp(7rem,24vw,22rem)] font-black leading-[0.8] tabular-nums" data-loader-count>000</p>
+        <div class="mt-8 flex items-end justify-between gap-6">
+          <p class="loader__bar min-w-0 flex-1" data-loader-bar><span class="text-cyan" data-bar-fill></span><span class="text-silver" data-bar-edge></span><span class="text-rule" data-bar-rest></span></p>
+          <p class="shrink-0 text-sm text-dim">Carregando</p>
+        </div>
+      </div>
+    </div>
+  </div>
   <canvas class="field-canvas" data-field aria-hidden="true"></canvas>
   <p class="display pointer-events-none invisible fixed inset-0 z-[96] flex items-center justify-center px-4 text-center text-[clamp(3.5rem,13vw,12rem)] font-black text-silver opacity-0" data-transition-label aria-hidden="true"></p>
 

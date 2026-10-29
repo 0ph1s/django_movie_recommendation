@@ -95,6 +95,32 @@ html.lenis body {
   to { visibility: visible; }
 }
 
+/* Tela de carregamento da primeira visita (a classe vem do script inline do <head>).
+   Se o JavaScript falhar, ela some sozinha depois de 9 s. */
+.loader {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: none;
+  background: var(--color-night);
+  color: var(--color-silver);
+}
+html.is-loading .loader {
+  display: block;
+  animation: loader-fallback 0.4s 9s forwards;
+}
+.loader__bar {
+  overflow: hidden;
+  white-space: pre;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: clamp(0.875rem, 1.5vw, 1.125rem);
+  letter-spacing: 0.08em;
+}
+
+@keyframes loader-fallback {
+  to { opacity: 0; visibility: hidden; }
+}
+
 @keyframes cortina-fallback {
   to { opacity: 0; visibility: hidden; }
 }
