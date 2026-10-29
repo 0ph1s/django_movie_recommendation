@@ -1,0 +1,68 @@
+{% load static %}<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Ângulo{% endblock %}</title>
+  <meta name="description" content="{% block description %}Recomendações de filmes, séries e animes pela similaridade do cosseno entre o seu perfil e o catálogo.{% endblock %}">
+  <meta name="theme-color" content="#0a1322">
+  <script>
+    document.documentElement.classList.add('js');
+    // Chegando de uma transição: cobre a página até o fundo WebGL assumir a cortina.
+    try { if (sessionStorage.getItem('angulo:veil')) document.documentElement.classList.add('is-entering'); } catch (e) {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;800;900&family=Schibsted+Grotesk:ital,wght@0,400..700;1,400..700&display=swap">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a1322'/%3E%3Ccircle cx='11' cy='16' r='6' fill='%235fc3d6'/%3E%3Ccircle cx='22' cy='16' r='4' fill='%23f2a541'/%3E%3C/svg%3E">
+  <script type="importmap">
+    {
+      "imports": {
+        "gsap": "{% static 'vendor/gsap/index.js' %}",
+        "gsap/ScrollTrigger": "{% static 'vendor/gsap/ScrollTrigger.js' %}",
+        "gsap/SplitText": "{% static 'vendor/gsap/SplitText.js' %}",
+        "gsap/Flip": "{% static 'vendor/gsap/Flip.js' %}"
+      }
+    }
+  </script>
+  <script type="module" src="{% static 'js/main.js' %}"></script>
+</head>
+<body data-page="{{ page }}" class="min-h-svh overflow-x-hidden">
+  <canvas class="field-canvas" data-field aria-hidden="true"></canvas>
+
+  <a href="#conteudo" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[120] focus:bg-silver focus:px-4 focus:py-2 focus:text-night">Pular para o conteúdo</a>
+
+  <header class="relative z-20">
+    <nav class="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-5 sm:px-8" aria-label="Principal">
+      <a href="{% url 'web:home' %}" class="display text-[2rem] font-black leading-none tracking-tight" aria-label="Ângulo, página inicial">Ângulo</a>
+      <div class="flex items-center gap-3 sm:gap-6">
+        <div class="seg hidden sm:inline-flex" role="group" aria-label="Estilo do fundo">
+          <button type="button" data-field-mode="halftone" aria-pressed="true">Retícula</button>
+          <button type="button" data-field-mode="ascii" aria-pressed="false">ASCII</button>
+        </div>
+        {% if page != 'playground' %}
+          <a href="{% url 'web:playground' %}" class="magnetic rounded-full bg-silver px-5 py-2.5 text-sm font-semibold text-night" data-magnetic>
+            <span class="magnetic__label">Abrir o playground</span>
+          </a>
+        {% else %}
+          <a href="{% url 'web:home' %}#metodo" class="text-sm text-dim underline-offset-4 hover:text-silver hover:underline">Como funciona</a>
+        {% endif %}
+      </div>
+    </nav>
+  </header>
+
+  <main id="conteudo" class="relative z-10">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="relative z-10 border-t border-rule">
+    <div class="mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-8 text-sm text-dim sm:flex-row sm:justify-between sm:px-8">
+      <p>Filmes do TMDB 5000 Movie Dataset. Séries e animes de amostras nos formatos do TMDB e do MyAnimeList.</p>
+      <p>Similaridade do cosseno com Django, scikit-learn e NumPy.</p>
+    </div>
+  </footer>
+
+  {% block data %}{% endblock %}
+</body>
+</html>

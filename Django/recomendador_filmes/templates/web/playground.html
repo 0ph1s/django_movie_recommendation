@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Playground | Ângulo
+<a href="#painel" class="fixed bottom-4 right-4 z-30 rounded-full bg-cyan px-5 py-3 text-sm font-semibold text-night shadow-lg shadow-night/60 lg:hidden">Ver recomendações</a>
+{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-[1600px] px-4 pb-24 sm:px-8" data-playground>
+  <header class="flex flex-col gap-4 pb-10 pt-6 lg:flex-row lg:items-end lg:justify-between">
+    <h1 class="display text-[clamp(3.5rem,9vw,8.5rem)] font-black" data-reveal>Playground</h1>
+    <p class="max-w-md text-lg leading-relaxed text-silver/80">
+      Marque o que você já viu. As recomendações são recalculadas a cada clique e a cada
+      ajuste dos controles.
+    </p>
+  </header>
+
+  <div class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]">
+    <!-- Catálogo -->
+    <section aria-labelledby="catalogo-titulo">
+      <h2 id="catalogo-titulo" class="sr-only">Catálogo</h2>
+      <div class="sticky top-0 z-20 -mx-4 flex flex-col gap-4 bg-night/85 px-4 py-4 backdrop-blur-md sm:-mx-8 sm:px-8 md:flex-row md:items-center">
+        <label class="relative flex-1">
+          <span class="sr-only">Buscar no catálogo</span>
+          <input type="search" autocomplete="off" spellcheck="false" data-search
+                 placeholder="Buscar entre {{ total_titles|intcomma }} títulos"
+                 class="w-full border-b border-rule bg-transparent py-2 text-xl text-silver placeholder:text-dim focus:border-cyan focus:outline-none">
+        </label>
+        <div class="seg self-start" role="group" aria-label="Tipo de título no catálogo" data-catalog-kinds>
+          <button type="button" data-kind="" aria-pressed="true">Tudo</button>
+          {% for value, label in kinds %}
+            <button type="button" data-kind="{{ value }}" aria-pressed="false">{% if value == 'movie' %}Filmes{% elif value == 'series' %}Séries{% else %}Animes{% endif %}</button>
+          {% endfor %}
+        </div>
+      </div>
+      <p class="mt-4 min-h-6 text-sm text-dim" data-catalog-status aria-live="polite"></p>
+      <ul class="mt-4 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 xl:grid-cols-4" data-catalog-grid></ul>
+      <div class="mt-10 flex justify-center">
+        <button type="button" class="magnetic hidden rounded-full border border-rule px-6 py-3 text-sm hover:border-silver/60" data-magnetic data-load-more>
+          <span class="magnetic__label">Carregar mais</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Painel de recomendação -->
+    <aside id="painel" class="scroll-mt-4 lg:sticky lg:top-6 lg:max-h-[calc(100svh-3rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:pr-1 thin-scroll" aria-label="Recomendações" data-panel>
+      <div class="rounded-sm border border-rule bg-night/80 backdrop-blur-md">
+        <div class="flex items-center justify-between gap-3 border-b border-rule px-5 py-4">
+          <div class="seg" role="tablist" aria-label="Modo de recomendação">
+            <button type="button" role="tab" aria-pressed="true" aria-selected="true" data-mode="profile">Para você</button>
+            <button type="button" role="tab" aria-pressed="false" aria-selected="false" data-mode="similar" disabled>Parecidos com…</button>
+          </div>
+          <p class="text-right text-xs tabular-nums text-dim" data-stats></p>
+        </div>
+
+        <!-- Perfil -->
+        <section class="border-b border-rule px-5 py-5" data-profile-section>
+          <div class="flex items-baseline justify-between gap-3">
+            <h2 class="text-sm font-semibold">Seu perfil</h2>
+            <button type="button" class="text-xs text-dim underline-offset-4 hover:text-silver hover:underline disabled:opacity-40" data-reset disabled>Limpar perfil</button>
+          </div>
+          <ul class="mt-3 flex flex-wrap gap-2" data-history></ul>
+          <div class="mt-5 hidden" data-dna>
+            <h3 class="text-xs text-dim">O que mais pesa no seu vetor</h3>
+            <ul class="mt-3 space-y-1.5" data-dna-list></ul>
+            <p class="mt-4 text-xs leading-relaxed text-dim" data-dna-summary></p>
+          </div>
+        </section>
+
+        <!-- Controles do filtro híbrido -->
+        <section class="border-b border-rule px-5 py-5" aria-labelledby="controles-titulo">
+          <h2 id="controles-titulo" class="sr-only">Controles do filtro híbrido</h2>
+          <div class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+            <label class="block">
+              <span class="flex justify-between text-xs"><span>Similaridade vs. qualidade</span><output class="tabular-nums text-dim" data-out="alpha"></output></span>
+              <input type="range" class="range" min="0" max="1" step="0.05" value="0.75" data-param="alpha">
+            </label>
+            <label class="block">
+              <span class="flex justify-between text-xs"><span>Nota vs. popularidade</span><output class="tabular-nums text-dim" data-out="rating_weight"></output></span>
+              <input type="range" class="range" min="0" max="1" step="0.05" value="0.65" data-param="rating_weight">
+            </label>
+            <label class="block">
+              <span class="flex justify-between text-xs"><span>Esconder pouco votados</span><output class="tabular-nums text-dim" data-out="obscurity"></output></span>
+              <input type="range" class="range" min="0" max="0.9" step="0.05" value="0.25" data-param="obscurity">
+            </label>
+            <label class="block">
+              <span class="flex justify-between text-xs"><span>Diversidade</span><output class="tabular-nums text-dim" data-out="diversity"></output></span>
+              <input type="range" class="range" min="0" max="0.8" step="0.05" value="0.15" data-param="diversity">
+            </label>
+          </div>
+          <fieldset class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+            <legend class="sr-only">Tipos recomendados</legend>
+            <span class="text-dim">Recomendar</span>
+            {% for value, label in kinds %}
+              <label class="inline-flex items-center gap-1.5">
+                <input type="checkbox" class="accent-cyan" value="{{ value }}" checked data-rec-kind>
+                {% if value == 'movie' %}filmes{% elif value == 'series' %}séries{% else %}animes{% endif %}
+              </label>
+            {% endfor %}
+          </fieldset>
+        </section>
+
+        <!-- Resultados -->
+        <section class="px-5 py-5" aria-labelledby="resultados-titulo">
+          <div class="flex items-baseline justify-between gap-3">
+            <h2 id="resultados-titulo" class="text-sm font-semibold" data-results-title>Para você</h2>
+            <p class="flex items-center gap-3 text-xs text-dim" aria-hidden="true">
+              <span class="inline-flex items-center gap-1.5"><span class="inline-block size-2 rounded-full bg-cyan"></span>similaridade</span>
+              <span class="inline-flex items-center gap-1.5"><span class="inline-block size-2 rounded-full bg-amber"></span>qualidade</span>
+            </p>
+          </div>
+          <p class="mt-2 text-xs leading-relaxed text-dim" data-results-note></p>
+          <ol class="mt-4 space-y-1" data-results aria-live="polite"></ol>
+        </section>
+
+        <!-- Matriz de similaridade -->
+        <section class="hidden border-t border-rule px-5 py-5" aria-labelledby="matriz-titulo" data-matrix-section>
+          <h2 id="matriz-titulo" class="text-sm font-semibold">Matriz de similaridade</h2>
+          <p class="mt-1 text-xs leading-relaxed text-dim">Cosseno entre o seu histórico e as primeiras recomendações. Quanto maior o ponto, mais parecidos.</p>
+          <div class="mt-4" data-matrix></div>
+        </section>
+      </div>
+    </aside>
+  </div>
+</div>
+{% endblock %}
