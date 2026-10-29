@@ -53,16 +53,18 @@ function solidCurtain() {
   return el;
 }
 
-/** Nome da página sobre a cortina. */
+/** Nome da página sobre a cortina. Na entrada, a animação volta pausada para quem a dispara. */
 function mostrarRotulo(texto, { entrando }) {
   const el = document.querySelector('[data-transition-label]');
   if (!el || !texto) return null;
   el.textContent = texto;
   return entrando
-    // Na saída, o nome só entra quando a cortina já cobriu a maior parte da tela.
-    ? gsap.fromTo(el, { autoAlpha: 0, yPercent: 40 }, { autoAlpha: 1, yPercent: 0, duration: 0.5, delay: 0.5, ease: 'expo.out' })
+    ? gsap.fromTo(el, { autoAlpha: 0, yPercent: 40 }, { autoAlpha: 1, yPercent: 0, duration: 0.45, ease: 'expo.out', paused: true })
     : gsap.fromTo(el, { autoAlpha: 1, yPercent: 0 }, { autoAlpha: 0, yPercent: -30, duration: 0.55, delay: 0.1, ease: 'power2.in' });
 }
+
+// A partir deste ponto da cortina (0–1) quase toda a tela está coberta e o nome pode entrar.
+const VEIL_LABEL_THRESHOLD = 0.75;
 
 /**
  * Liga a transição de saída nos links internos e executa a de entrada.
@@ -130,14 +132,25 @@ export function initTransitions(field, { reduced = false } = {}) {
     // a navegação acontece mesmo assim.
     setTimeout(sair, 1800);
 
-    mostrarRotulo(rotulo, { entrando: true });
+    const nome = mostrarRotulo(rotulo, { entrando: true });
     if (field) {
       document.body.classList.add('is-veiled');
-      // Um respiro depois de cobrir a tela, para o nome do destino ser lido.
-      gsap.to(field.state, { veil: 1, duration: 0.8, ease: 'power2.in', overwrite: true, onComplete: () => gsap.delayedCall(0.2, sair) });
+      gsap.to(field.state, {
+        veil: 1,
+        duration: 0.8,
+        ease: 'power2.in',
+        overwrite: true,
+        // O nome entra quando a cortina já cobriu quase tudo, para não se sobrepor ao conteúdo.
+        onUpdate: () => {
+          if (nome && !nome.isActive() && nome.progress() === 0 && field.state.veil >= VEIL_LABEL_THRESHOLD) nome.play();
+        },
+        // Um respiro depois de cobrir a tela, para o nome do destino ser lido.
+        onComplete: () => gsap.delayedCall(0.3, sair),
+      });
     } else {
       const cortina = solidCurtain();
       cortina.dataset.curtain = '';
+      nome?.play();
       gsap.to(cortina, { opacity: 1, duration: 0.4, onComplete: sair });
     }
   });
