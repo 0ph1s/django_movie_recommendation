@@ -157,7 +157,7 @@ html.is-loading .loader {
     inset: -3rem -3rem;
     z-index: -1;
     pointer-events: none;
-    background: rgb(10 19 34 / 0.8);
+    background: rgb(10 19 34 / 0.6);
     /* O desfoque transforma os caracteres que vazam pelo véu numa névoa sem forma. */
     /* Sem prefixos: o Tailwind (Lightning CSS) acrescenta as versões -webkit-. */
     backdrop-filter: blur(14px);
