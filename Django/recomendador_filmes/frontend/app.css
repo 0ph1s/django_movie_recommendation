@@ -141,7 +141,7 @@ html.is-loading .loader {
     font-family: var(--font-display);
     font-weight: 800;
     letter-spacing: -0.01em;
-    line-height: 0.84;
+    line-height: 0.96;
   }
 
   /* Retícula em CSS (pôsteres, placeholders). --dot: raio relativo; --cell: passo da grade. */
