@@ -26,7 +26,11 @@
   </header>
 
   <nav class="sticky top-3 z-20 -mx-2 mb-16 sm:-mx-4" aria-label="Seções do perfil">
-    <div class="seg max-w-full overflow-x-auto thin-scroll" data-profile-nav>
+    <button type="button" class="profile-nav-toggle sm:hidden" aria-expanded="false" aria-controls="profile-nav" data-profile-nav-toggle>
+      <span class="profile-nav-toggle__bars" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span><span class="sr-only">Seções, atual: </span><span data-profile-nav-current>DNA</span></span>
+    </button>
+    <div id="profile-nav" class="seg profile-nav max-w-full overflow-x-auto thin-scroll" data-profile-nav>
       <a href="#dna" aria-current="true">DNA</a>
       <a href="#radar">Gêneros</a>
       {% if not insights or insights.map_available %}<a href="#mapa">Mapa</a>{% endif %}

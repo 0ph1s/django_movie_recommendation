@@ -110,7 +110,31 @@ class ProfilePage {
       evento.preventDefault();
       scrollToElement(destino, { offset: -96 });
       history.replaceState(null, '', link.getAttribute('href'));
+      this.toggleNav(false);
     }));
+    this.bindNavToggle();
+  }
+
+  /** No celular o menu de seções é um hambúrguer: abre a lista e fecha ao escolher, clicar fora ou Esc. */
+  bindNavToggle() {
+    const botao = $('[data-profile-nav-toggle]');
+    if (!botao) return;
+    botao.addEventListener('click', () => this.toggleNav(botao.getAttribute('aria-expanded') !== 'true'));
+    document.addEventListener('pointerdown', (evento) => {
+      if (!evento.target.closest('[data-profile-nav], [data-profile-nav-toggle]')) this.toggleNav(false);
+    });
+    document.addEventListener('keydown', (evento) => {
+      if (evento.key !== 'Escape' || botao.getAttribute('aria-expanded') !== 'true') return;
+      this.toggleNav(false);
+      botao.focus();
+    });
+  }
+
+  toggleNav(aberto) {
+    const botao = $('[data-profile-nav-toggle]');
+    if (!botao) return;
+    botao.setAttribute('aria-expanded', String(aberto));
+    $('[data-profile-nav]').classList.toggle('is-open', aberto);
   }
 
   /** O link da seção visível fica marcado no menu fixo. */
@@ -126,7 +150,9 @@ class ProfilePage {
         onToggle: (self) => {
           if (!self.isActive) return;
           links.forEach((l) => l.toggleAttribute('aria-current', l === link));
-          link.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          const atual = $('[data-profile-nav-current]');
+          if (atual) atual.textContent = link.textContent;
+          if (link.offsetParent) link.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         },
       });
     });
@@ -233,7 +259,7 @@ class ProfilePage {
       corpo.innerHTML = `
         <div class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div class="min-w-0">
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3" data-map-controls>
               <div class="seg" role="group" aria-label="Tipos mostrados no mapa" data-map-kinds>
                 <button type="button" data-kind="" aria-pressed="true">Tudo</button>
                 <button type="button" data-kind="movie" aria-pressed="false">Filmes</button>
@@ -247,9 +273,10 @@ class ProfilePage {
                 <button type="button" class="rounded-full border border-rule px-3 py-1 text-xs hover:border-silver/60" data-map-zoom="reset">Ver tudo</button>
               </div>
             </div>
-            <div class="taste-map" data-map data-lenis-prevent>
+            <div class="taste-map" data-map>
               <canvas role="img" aria-label="Mapa do catálogo em duas dimensões: títulos parecidos ficam próximos. Os seus títulos estão destacados e uma mira marca o centro do seu perfil."></canvas>
               <div class="taste-map__tooltip" data-map-tooltip hidden></div>
+              <p class="taste-map__hint" aria-hidden="true">Clique para explorar o mapa</p>
             </div>
             <p class="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-dim" aria-hidden="true">
               <span class="inline-flex items-center gap-1.5"><span class="inline-block size-2.5 rounded-full bg-cyan"></span>favorito</span>
@@ -342,6 +369,7 @@ class ProfilePage {
   }
 
   renderStats() {
+    const SEP = '<span class="mx-[0.16em] inline-block size-[0.16em] rounded-full bg-dim align-middle"></span><span class="sr-only">, </span>';
     const lista = $('[data-stats]');
     const { stats, counts, locks } = this.data;
     if (!stats) {
@@ -351,16 +379,26 @@ class ProfilePage {
     const tipos = Object.entries(stats.by_kind).filter(([, n]) => n).map(([k, n]) => `${n} ${n === 1 ? KIND_LABEL[k].toLowerCase() : KIND_PLURAL[k]}`);
     const itens = [
       ['Avaliações', fmt.int(stats.rated), `${plural(counts.positives, 'curtido', 'curtidos')}${stats.by_state.favorite ? `, ${plural(stats.by_state.favorite, 'favorito', 'favoritos')}` : ''}`],
-      ['Filmes · séries · animes', ['movie', 'series', 'anime'].map((k) => stats.by_kind[k]).join(' · '), tipos.join(', ') || 'nada ainda'],
-      ['Década favorita', stats.favorite_decade ? `${String(stats.favorite_decade).slice(2)}s` : '—', stats.favorite_decade ? `anos ${stats.favorite_decade}` : 'sem curtidos com ano'],
-      ['Horas assistidas', `≈ ${fmt.int(stats.hours)}`, stats.hours_missing ? `${plural(stats.hours_missing, 'título', 'títulos')} sem duração conhecida ${stats.hours_missing === 1 ? 'fica' : 'ficam'} de fora` : 'estimadas pela duração de cada título'],
+      ['Filmes · séries · animes', ['movie', 'series', 'anime'].map((k) => esc(stats.by_kind[k])).join(SEP), tipos.join(', ') || 'nada ainda'],
+      ['Década favorita', esc(stats.favorite_decade ? `${String(stats.favorite_decade).slice(2)}s` : '—'), stats.favorite_decade ? `anos ${stats.favorite_decade}` : 'sem curtidos com ano'],
+      ['Horas assistidas', `<span class="text-[0.6em] text-dim">≈</span>${esc(fmt.int(stats.hours))}`, stats.hours_missing ? `${plural(stats.hours_missing, 'título', 'títulos')} sem duração conhecida ${stats.hours_missing === 1 ? 'fica' : 'ficam'} de fora` : 'estimadas pela duração de cada título'],
     ];
+    // O valor já vem escapado (com separadores em HTML) e nunca quebra a linha.
     lista.innerHTML = itens.map(([rotulo, valor, nota]) => `
-      <div>
+      <div class="@container min-w-0">
         <dt class="text-xs text-dim">${esc(rotulo)}</dt>
-        <dd class="display mt-1 text-[clamp(2.5rem,4.5vw,4rem)] tabular-nums">${esc(valor)}</dd>
+        <dd class="display mt-1 whitespace-nowrap text-[clamp(2.5rem,4.5vw,4rem)] tabular-nums"><span class="inline-block">${valor}</span></dd>
         <dd class="mt-1 text-xs leading-relaxed text-dim">${esc(nota)}</dd>
       </div>`).join('');
+    // Valor largo demais para a coluna (ex.: 320 · 50 · 10) encolhe só o necessário: mede a
+    // largura em em e limita a fonte pela largura do contêiner (cqi), que acompanha o resize.
+    lista.querySelectorAll('dd.display').forEach((dd) => {
+      const largura = dd.firstElementChild.getBoundingClientRect().width;
+      const fonte = parseFloat(getComputedStyle(dd).fontSize);
+      if (!largura || !fonte) return;
+      const ems = largura / fonte;
+      dd.style.fontSize = `min(clamp(2.5rem, 4.5vw, 4rem), ${(100 / ems).toFixed(2)}cqi)`;
+    });
   }
 
   // ---- DNA
