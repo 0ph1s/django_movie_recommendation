@@ -8,10 +8,12 @@ controlado em api/serializers.py.
 """
 import difflib
 import hashlib
+import hmac
 import json
 import time
 from functools import wraps
 
+from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_http_methods
@@ -29,6 +31,7 @@ from recommender.engine import (
 from recommender import preferences
 from recommender.avatar import avatar_etag, avatar_grid, avatar_svg
 from recommender.insights import build_insights, profile_summary
+from recommender.maintenance import purge_anonymous
 from recommender.models import STATE_OF_LEGACY_SIGNAL, Interaction, clear_states, owner_key, set_state
 from recommender.profile import Signal
 
@@ -393,3 +396,19 @@ def recommendations(request):
         'results': _with_titles(resultados),
         **_profile_payload(request, historico),
     })
+
+
+# ---------------------------------------------------------------- manutenção (Vercel Cron)
+
+@require_GET
+def cron_purge_anonymous(request):
+    """Limpeza diária dos dados anônimos, chamada pelo Vercel Cron (ver vercel.json).
+
+    O Vercel manda `Authorization: Bearer $CRON_SECRET`. Sem o segredo configurado no
+    servidor, a rota recusa qualquer chamada.
+    """
+    segredo = settings.CRON_SECRET
+    enviado = request.headers.get('Authorization', '')
+    if not segredo or not hmac.compare_digest(enviado.encode(), f'Bearer {segredo}'.encode()):
+        return _erro('Não autorizado.', status=401)
+    return JsonResponse(purge_anonymous())

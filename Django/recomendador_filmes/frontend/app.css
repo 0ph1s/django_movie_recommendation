@@ -520,3 +520,15 @@ html.is-loading .loader {
     pointer-events: none;
   }
 }
+
+@layer components {
+  /* Blocos da página de configurações. */
+  .settings-card {
+    border: 1px solid var(--color-rule);
+    border-radius: 4px;
+    background: rgb(10 19 34 / 0.78);
+    padding: 1.75rem;
+    backdrop-filter: blur(10px);
+  }
+  .settings-card details > summary::-webkit-details-marker { display: none; }
+}

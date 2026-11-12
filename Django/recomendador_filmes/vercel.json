@@ -6,5 +6,11 @@
       "maxDuration": 60,
       "excludeFiles": "{data/**,frontend/**,node_modules/**,var/**,db.sqlite3,**/tests/**,**/tests.py}"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/purge-anonymous/",
+      "schedule": "0 7 * * *"
+    }
+  ]
 }

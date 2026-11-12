@@ -74,6 +74,7 @@
             <div class="absolute right-0 top-full z-40 mt-2 w-56 rounded-sm border border-rule bg-night/95 py-2 text-sm shadow-lg shadow-night/60 backdrop-blur-md">
               <p class="truncate px-4 pb-2 text-xs text-dim">{{ user.email }}</p>
               <a href="{% url 'web:profile' %}" class="block px-4 py-2 hover:bg-deep" data-transition-label="Perfil">Perfil</a>
+              <a href="{% url 'accounts:settings' %}" class="block px-4 py-2 hover:bg-deep" data-transition-label="Configurações">Configurações</a>
               <form method="post" action="{% url 'accounts:logout' %}">
                 {% csrf_token %}
                 <button type="submit" class="w-full px-4 py-2 text-left hover:bg-deep">Sair</button>

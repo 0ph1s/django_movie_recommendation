@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}Configurações | Ângulo{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-[1600px] px-4 pb-32 sm:px-8">
+  <header class="grid gap-6 pb-14 pt-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] lg:items-end">
+    <h1 class="display text-[clamp(3.5rem,9vw,8.5rem)] font-black" data-reveal>Configurações</h1>
+    <p class="text-lg leading-relaxed text-silver/80">
+      Conta de <span class="text-silver">{{ user.email }}</span>, criada em {{ user.date_joined|date:"j \d\e F \d\e Y"|lower }}.
+    </p>
+  </header>
+
+  <div class="grid gap-x-16 gap-y-14 lg:grid-cols-2">
+    <!-- Nome público -->
+    <section class="settings-card" aria-labelledby="nome-titulo">
+      <h2 id="nome-titulo" class="text-xl font-semibold">Nome público</h2>
+      <p class="mt-2 text-sm leading-relaxed text-dim">É como o seu perfil vai aparecer quando houver páginas públicas. Hoje ele só aparece para você.</p>
+      <form method="post" novalidate class="mt-6 space-y-6">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="username">
+        {% include 'accounts/_field.html' with field=form_username.username %}
+        <button type="submit" class="rounded-full bg-silver px-5 py-2.5 text-sm font-semibold text-night hover:bg-cyan">Salvar nome</button>
+      </form>
+    </section>
+
+    <!-- Senha -->
+    <section class="settings-card" aria-labelledby="senha-titulo">
+      <h2 id="senha-titulo" class="text-xl font-semibold">Senha</h2>
+      <p class="mt-2 text-sm leading-relaxed text-dim">Ainda não há recuperação de senha por e-mail: guarde a nova num gerenciador.</p>
+      <form method="post" novalidate class="mt-6 space-y-6">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="password">
+        {% for erro in form_password.non_field_errors %}<p class="text-sm text-amber" role="alert">{{ erro }}</p>{% endfor %}
+        {% include 'accounts/_field.html' with field=form_password.old_password %}
+        {% include 'accounts/_field.html' with field=form_password.new_password1 %}
+        {% include 'accounts/_field.html' with field=form_password.new_password2 %}
+        <button type="submit" class="rounded-full bg-silver px-5 py-2.5 text-sm font-semibold text-night hover:bg-cyan">Trocar senha</button>
+      </form>
+    </section>
+
+    <!-- Exportar -->
+    <section class="settings-card" aria-labelledby="dados-titulo">
+      <h2 id="dados-titulo" class="text-xl font-semibold">Seus dados</h2>
+      <p class="mt-2 text-sm leading-relaxed text-dim">
+        Um arquivo JSON com tudo o que o Ângulo guarda sobre você: a conta (sem a senha), os
+        ajustes do filtro, cada título avaliado e o histórico de cada mudança de gosto.
+      </p>
+      <a href="{% url 'accounts:export' %}" class="mt-6 inline-flex rounded-full border border-rule px-5 py-2.5 text-sm hover:border-silver/60" data-transition="off" download>Baixar meus dados</a>
+    </section>
+
+    <!-- Excluir -->
+    <section class="settings-card border-amber/40" aria-labelledby="excluir-titulo">
+      <h2 id="excluir-titulo" class="text-xl font-semibold text-amber">Excluir conta</h2>
+      <p class="mt-2 text-sm leading-relaxed text-dim">
+        Apaga na hora a conta, todos os títulos avaliados, o histórico de gosto e os ajustes. Não
+        dá para desfazer. Se quiser guardar alguma coisa, baixe os seus dados antes.
+      </p>
+      <details class="mt-6" {% if open_section == 'delete' %}open{% endif %}>
+        <summary class="inline-flex cursor-pointer list-none rounded-full border border-amber/60 px-5 py-2.5 text-sm text-amber hover:bg-amber/10">Quero excluir a minha conta</summary>
+        <form method="post" novalidate class="mt-6 space-y-6">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete">
+          {% include 'accounts/_field.html' with field=form_delete.password %}
+          <button type="submit" class="rounded-full bg-amber px-5 py-2.5 text-sm font-semibold text-night hover:bg-silver">Excluir conta e todos os dados</button>
+        </form>
+      </details>
+    </section>
+  </div>
+</div>
+{% endblock %}

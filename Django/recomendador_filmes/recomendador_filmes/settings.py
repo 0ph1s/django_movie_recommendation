@@ -175,6 +175,10 @@ AXES_CLIENT_IP_CALLABLE = 'accounts.security.client_ip'
 AXES_USERNAME_CALLABLE = 'accounts.security.login_username'
 AXES_VERBOSE = False
 
+# Segredo que o Vercel Cron manda em `Authorization: Bearer ...` ao chamar as rotas de
+# manutenção (/api/cron/...). Sem ele definido, essas rotas recusam tudo.
+CRON_SECRET = os.environ.get('CRON_SECRET', '')
+
 # Nos testes, um hash de senha rápido: o PBKDF2 é lento de propósito e multiplicaria o tempo
 # da suíte (cada cadastro e login dos testes faz um hash).
 if 'test' in sys.argv[1:2]:

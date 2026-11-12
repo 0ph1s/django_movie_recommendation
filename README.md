@@ -140,6 +140,7 @@ consulta é um produto matriz-vetor esparso de ~10–30 ms. O índice é salvo e
 | GET | `/api/profile/insights/?exclude=1,2` | Tudo o que a página de perfil mostra; `exclude` recalcula sem esses títulos (modo "e se") |
 | GET | `/api/map/points/` | Todos os títulos com posição no mapa, em colunas compactas (com ETag) |
 | GET | `/api/profile/avatar.svg` | Avatar ASCII gerado do DNA do perfil (com ETag) |
+| GET | `/api/cron/purge-anonymous/` | Limpeza diária dos dados anônimos (só com `Authorization: Bearer $CRON_SECRET`) |
 | POST | `/api/profile/account-offer/dismiss/` | "Agora não" no cartão que oferece criar conta |
 | GET / PUT / DELETE | `/api/preferences/` | Ajustes do filtro híbrido salvos (PUT parcial; DELETE restaura o padrão) |
 
@@ -196,6 +197,13 @@ Cadastro em `/criar-conta/` (e-mail + senha; o username público é gerado, como
 - **Preferências:** os controles do playground são salvos sozinhos, na sessão ou na conta.
 - **Força bruta:** com o [django-axes](https://github.com/jazzband/django-axes), 5 senhas erradas
   para o mesmo e-mail, a partir do mesmo IP, bloqueiam novas tentativas por 15 minutos.
+- **Configurações** (`/configuracoes/`): troca do nome público e da senha, download de todos os
+  dados em JSON (conta sem a senha, ajustes, avaliações e histórico de eventos) e exclusão da conta,
+  confirmada com a senha, que apaga na hora tudo o que pertence a ela.
+- **Limpeza dos anônimos:** `python manage.py purge_anonymous` apaga as sessões expiradas e o
+  histórico de gosto que ficou sem sessão. No Vercel, o cron de `vercel.json` chama
+  `/api/cron/purge-anonymous/` uma vez por dia (07:00 UTC) com `Authorization: Bearer $CRON_SECRET`.
+  Defina `CRON_SECRET` nas variáveis do projeto; sem ela, a rota recusa qualquer chamada.
 - **Ainda não há** recuperação de senha nem verificação de e-mail (exigem um serviço de envio).
 
 **Banco criado antes das contas.** Trocar o modelo de usuário num banco já migrado não tem

@@ -19,4 +19,5 @@ urlpatterns = [
     path('profile/account-offer/dismiss/', views.dismiss_account_offer, name='account-offer-dismiss'),
     path('preferences/', views.user_preferences, name='preferences'),
     path('recommendations/', views.recommendations, name='recommendations'),
+    path('cron/purge-anonymous/', views.cron_purge_anonymous, name='cron-purge-anonymous'),
 ]
