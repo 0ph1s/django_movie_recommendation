@@ -4,6 +4,7 @@
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
+import { hideMenu, revealMenu } from '../fx/menu-motion.js';
 import { scrollToElement } from '../fx/smooth-scroll.js';
 import { initTilt } from '../fx/tilt.js';
 import { api, isAbort } from '../lib/api.js';
@@ -132,9 +133,16 @@ class ProfilePage {
 
   toggleNav(aberto) {
     const botao = $('[data-profile-nav-toggle]');
-    if (!botao) return;
+    if (!botao || (botao.getAttribute('aria-expanded') === 'true') === aberto) return;
+    const lista = $('[data-profile-nav]');
     botao.setAttribute('aria-expanded', String(aberto));
-    $('[data-profile-nav]').classList.toggle('is-open', aberto);
+    if (aberto) {
+      lista.classList.add('is-open');
+      revealMenu(lista, { origin: 'top left' });
+    } else {
+      // A lista só some (display: none) quando a animação de saída termina.
+      hideMenu(lista, () => lista.classList.remove('is-open'));
+    }
   }
 
   /** O link da seção visível fica marcado no menu fixo. */
