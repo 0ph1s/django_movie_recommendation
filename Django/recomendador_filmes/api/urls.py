@@ -10,6 +10,7 @@ urlpatterns = [
     path('titles/<int:pk>/', views.title_detail, name='title-detail'),
     path('titles/<int:pk>/similar/', views.similar, name='title-similar'),
     path('similarity-matrix/', views.matrix, name='similarity-matrix'),
+    path('map/points/', views.map_points, name='map-points'),
     path('profile/', views.profile, name='profile'),
     path('profile/interactions/', views.add_interaction, name='interaction-add'),
     path('profile/interactions/<int:title_id>/', views.remove_interaction, name='interaction-remove'),

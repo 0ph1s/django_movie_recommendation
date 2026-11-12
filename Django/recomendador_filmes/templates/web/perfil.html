@@ -29,6 +29,7 @@
     <div class="seg max-w-full overflow-x-auto thin-scroll" data-profile-nav>
       <a href="#dna" aria-current="true">DNA</a>
       <a href="#radar">Gêneros</a>
+      {% if not insights or insights.map_available %}<a href="#mapa">Mapa</a>{% endif %}
       <a href="#definem">Te definem</a>
       <a href="#conforto">Conforto</a>
       <a href="#watchlist">Quero assistir</a>
@@ -51,6 +52,14 @@
     <div class="profile-section__head">
       <h2 id="radar-titulo" class="display text-[clamp(2.5rem,6vw,5.5rem)]" data-reveal>Seus gêneros contra o catálogo</h2>
       <p class="max-w-xl text-lg leading-relaxed text-silver/80">Em ciano, a parcela de cada gênero no que você curtiu. Em pontilhado, a parcela do gênero no catálogo inteiro.</p>
+    </div>
+    <div data-body></div>
+  </section>
+
+  <section id="mapa" class="profile-section" aria-labelledby="mapa-titulo" data-section="map"{% if insights and not insights.map_available %} hidden{% endif %}>
+    <div class="profile-section__head">
+      <h2 id="mapa-titulo" class="display text-[clamp(2.5rem,6vw,5.5rem)]" data-reveal>O mapa do seu gosto</h2>
+      <p class="max-w-xl text-lg leading-relaxed text-silver/80">Cada ponto é um título do catálogo, e títulos parecidos ficam perto. Os seus estão destacados; a mira é o centro do seu perfil. Role para aproximar, arraste para mover e clique num ponto para avaliá-lo.</p>
     </div>
     <div data-body></div>
   </section>

@@ -7,6 +7,7 @@ memória ou escrita de uma única tabela (Interaction), e o formato de resposta 
 controlado em api/serializers.py.
 """
 import difflib
+import hashlib
 import json
 import time
 from functools import wraps
@@ -274,8 +275,11 @@ def insights_payload(request, exclude=()):
 
     titulos = {i.title_id: i.title for i in historico}
     pontos_cegos = (dados['comfort'] or {}).get('blind_spots', [])
-    faltam = {b['suggestion_id'] for b in pontos_cegos} - set(titulos)
+    vizinhos = (dados['map'] or {}).get('neighbor_ids', [])
+    faltam = ({b['suggestion_id'] for b in pontos_cegos} | set(vizinhos)) - set(titulos)
     titulos.update(Title.objects.for_listing().in_bulk(faltam))
+    if dados['map']:
+        dados['map']['neighbors'] = [serializers.title_card(titulos[t]) for t in vizinhos]
 
     for item in [*(dados['defining'] or []), *dados['watchlist']]:
         item['title'] = serializers.title_card(titulos[item['title_id']])
@@ -295,6 +299,35 @@ def profile_insights(request):
     except ValueError:
         return _erro('Use exclude=1,2,3 com números inteiros.')
     return JsonResponse(insights_payload(request, excluir))
+
+
+@require_GET
+def map_points(request):
+    """Todos os títulos com posição no mapa do gosto, em colunas compactas e iguais para todos.
+
+    x e y vêm multiplicados por 1000 (inteiros de -1000 a 1000); `kinds` é uma letra por
+    título (m = filme, s = série, a = anime). O título e a capa vêm sob demanda (/api/titles/<id>/).
+    """
+    linhas = Title.objects.filter(map_x__isnull=False, map_y__isnull=False).order_by('id').values_list(
+        'id', 'map_x', 'map_y', 'kind',
+    )
+    letra = {'movie': 'm', 'series': 's', 'anime': 'a'}
+    colunas = {'ids': [], 'x': [], 'y': [], 'kinds': []}
+    for pk, x, y, kind in linhas:
+        colunas['ids'].append(pk)
+        colunas['x'].append(round(x * 1000))
+        colunas['y'].append(round(y * 1000))
+        colunas['kinds'].append(letra[kind])
+    colunas['kinds'] = ''.join(colunas['kinds'])
+    corpo = json.dumps(colunas, separators=(',', ':')).encode()
+    etag = f'"{hashlib.sha1(corpo).hexdigest()[:16]}"'
+    if request.headers.get('If-None-Match') == etag:
+        resposta = HttpResponse(status=304)
+    else:
+        resposta = HttpResponse(corpo, content_type='application/json')
+    resposta['ETag'] = etag
+    resposta['Cache-Control'] = 'public, max-age=3600'
+    return resposta
 
 
 @require_GET

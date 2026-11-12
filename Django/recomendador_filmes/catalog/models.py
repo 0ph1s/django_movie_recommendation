@@ -79,6 +79,10 @@ class Title(models.Model):
     # (índice do TMDB vs. membros do MAL); o percentil é o que permite ordenar o catálogo misto.
     popularity_rank = models.FloatField('percentil de popularidade', default=0, db_index=True)
     poster_url = models.URLField('pôster', max_length=500, blank=True)
+    # Posição no mapa do gosto (t-SNE do espaço de features, de -1 a 1). Calculada localmente
+    # por `manage.py build_index` / `import_dataset` e servida pronta: o Vercel nunca projeta.
+    map_x = models.FloatField('mapa: x', null=True, blank=True)
+    map_y = models.FloatField('mapa: y', null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

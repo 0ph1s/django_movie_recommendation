@@ -138,6 +138,7 @@ consulta é um produto matriz-vetor esparso de ~10–30 ms. O índice é salvo e
 | POST | `/api/profile/interactions/` | `{"title_id": 1, "state": "favorite" \| "like" \| "dislike" \| "seen" \| "watchlist"}` (o formato antigo `"signal": 1 \| -1` continua aceito) |
 | DELETE | `/api/profile/interactions/<id>/` | Remove um título do perfil |
 | GET | `/api/profile/insights/?exclude=1,2` | Tudo o que a página de perfil mostra; `exclude` recalcula sem esses títulos (modo "e se") |
+| GET | `/api/map/points/` | Todos os títulos com posição no mapa, em colunas compactas (com ETag) |
 | GET | `/api/profile/avatar.svg` | Avatar ASCII gerado do DNA do perfil (com ETag) |
 | POST | `/api/profile/account-offer/dismiss/` | "Agora não" no cartão que oferece criar conta |
 | GET / PUT / DELETE | `/api/preferences/` | Ajustes do filtro híbrido salvos (PUT parcial; DELETE restaura o padrão) |
@@ -157,12 +158,27 @@ fixo de seções, cada uma bloqueada até ter dados suficientes (limiares em `re
   muda quando o gosto muda. A versão em SVG aparece no cabeçalho.
 - **DNA:** termos com mais peso no vetor, por grupo, e a parcela de cada bloco.
 - **Gêneros:** radar da afinidade por gênero contra a parcela do gênero no catálogo.
+- **Mapa do gosto:** o catálogo inteiro em 2D (canvas), com os seus títulos destacados e uma
+  mira no centro do perfil. Zoom, arrasto, filtro por tipo e um painel para avaliar o título
+  clicado; o centro se move na hora (e no modo "e se").
 - **Títulos que te definem:** os positivos que mais puxam o vetor (peso do estado × recência ×
   cosseno com o perfil). Cada um tem um interruptor que o tira do cálculo sem gravar nada.
 - **Conforto × exploração:** ecletismo (entropia de gêneros e tipos), dispersão no espaço e
   pontos cegos (gêneros, tipos e décadas bem avaliados sem nenhum título seu), cada um com uma
   porta de entrada.
 - **Quero assistir:** a watchlist com o % de match de cada título.
+
+**O mapa é calculado localmente.** TruncatedSVD (50 dimensões) e t-SNE (`recommender/projection.py`)
+levam cerca de 45 s para 5 mil títulos, então rodam só em `build_index` e `import_dataset` (ambos
+aceitam `--no-map`) e gravam `Title.map_x/map_y`. O Vercel apenas lê as coordenadas. Para o banco
+de produção, rode o comando localmente apontando para ele:
+
+```powershell
+$env:DATABASE_URL = "postgres://..."   # a do Neon
+python manage.py build_index
+```
+
+Sem coordenadas no banco, a seção do mapa simplesmente não aparece.
 
 Quem cria conta sem histórico passa por `/bem-vindo/`: 24 títulos populares e variados para
 marcar pelo menos 5.
@@ -251,6 +267,7 @@ Django/recomendador_filmes/
 │   ├── preferences.py       # preferências do filtro (sessão ou conta)
 │   ├── insights.py          # números, radar, títulos que te definem, conforto, watchlist
 │   ├── avatar.py            # avatar ASCII gerado do DNA
+│   ├── projection.py        # mapa do gosto: SVD + t-SNE
 │   └── models.py            # Interaction, mescla de histórico, UserPreferences
 ├── api/                     # endpoints JSON
 ├── web/                     # páginas (home, playground)

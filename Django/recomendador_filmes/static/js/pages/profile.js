@@ -10,6 +10,7 @@ import { api, isAbort } from '../lib/api.js';
 import { refreshHeaderAvatar } from '../lib/avatar.js';
 import { esc, fmt, KIND_LABEL, KIND_PLURAL } from '../lib/format.js';
 import { posterCaption, posterHTML } from '../lib/poster.js';
+import { loadTitle, TasteMap } from '../lib/taste-map.js';
 
 const $ = (seletor, raiz = document) => raiz.querySelector(seletor);
 const $$ = (seletor, raiz = document) => [...raiz.querySelectorAll(seletor)];
@@ -25,6 +26,25 @@ const BLOCK_LABEL = { synopsis: 'sinopse', tags: 'etiquetas', attributes: 'atrib
 const STATE_LABEL = {
   favorite: 'favorito', like: 'curti', dislike: 'não curti', seen: 'já vi', watchlist: 'quero assistir',
 };
+
+// Painel do mapa: o que cada botão faz a partir do estado atual (null = tira do perfil),
+// com a mesma lógica dos botões do playground.
+const POSITIVE = new Set(['favorite', 'like']);
+const NEXT_STATE = {
+  like: (atual) => (POSITIVE.has(atual) ? null : 'like'),
+  dislike: (atual) => (atual === 'dislike' ? null : 'dislike'),
+  favorite: (atual) => (atual === 'favorite' ? 'like' : 'favorite'),
+  watchlist: (atual) => (atual === 'watchlist' ? null : 'watchlist'),
+  seen: (atual) => (atual === 'seen' ? null : 'seen'),
+};
+const PRESSED = {
+  like: (estado) => POSITIVE.has(estado),
+  dislike: (estado) => estado === 'dislike',
+  favorite: (estado) => estado === 'favorite',
+  watchlist: (estado) => estado === 'watchlist',
+  seen: (estado) => estado === 'seen',
+};
+const MAP_ACTIONS = [['like', 'Curti'], ['dislike', 'Não curti'], ['favorite', 'Favorito'], ['watchlist', 'Quero assistir'], ['seen', 'Já vi']];
 
 const plural = (n, um, varios) => `${fmt.int(n)} ${n === 1 ? um : varios}`;
 
@@ -45,6 +65,8 @@ class ProfilePage {
     this.avatar = new AsciiAvatar($('[data-avatar]'), { reduced });
     this.bars = new Map();       // chave -> largura atual (para animar as mudanças)
     this.radarValues = null;
+    this.map = null;             // TasteMap, criado uma vez e atualizado a cada recálculo
+    this.selected = null;        // título aberto no painel do mapa
   }
 
   start() {
@@ -61,6 +83,17 @@ class ProfilePage {
 
   bind() {
     document.addEventListener('click', (evento) => {
+      const doMapa = evento.target.closest('[data-map-act]');
+      if (doMapa) {
+        const atual = this.stateOf(this.selected);
+        this.setState(this.selected, NEXT_STATE[doMapa.dataset.mapAct](atual));
+        return;
+      }
+      const vizinho = evento.target.closest('[data-map-select]');
+      if (vizinho) {
+        this.showMapPanel(Number(vizinho.dataset.mapSelect));
+        return;
+      }
       const alvo = evento.target.closest('[data-act]');
       if (!alvo) return;
       const id = Number(alvo.closest('[data-id]')?.dataset.id);
@@ -157,29 +190,155 @@ class ProfilePage {
     this.avatar.render(this.data.avatar, { first });
     this.renderSection('dna', () => this.renderDNA());
     this.renderSection('radar', () => this.renderRadar());
+    this.renderSection('map', () => this.renderMap());
     this.renderSection('defining', () => this.renderDefining());
     this.renderSection('comfort', () => this.renderComfort());
     this.renderWatchlist();
     if (!first) ScrollTrigger.refresh();
   }
 
-  /** Só o que o modo "e se" muda: DNA, radar, conforto e os interruptores. */
+  /** Só o que o modo "e se" muda: DNA, radar, centro no mapa, conforto e os interruptores. */
   renderWhatIf() {
     this.renderSection('dna', () => this.renderDNA());
     this.renderSection('radar', () => this.renderRadar());
+    this.renderSection('map', () => this.renderMap());
     this.renderSection('comfort', () => this.renderComfort());
     this.renderDefining();
   }
 
   renderSection(nome, desenhar) {
+    if (!this.body(nome)) return;
     const trava = this.data.locks[nome];
     if (trava && !trava.unlocked) {
       this.body(nome).innerHTML = lockedHTML(trava);
       this.bars.clear();
       if (nome === 'radar') this.radarValues = null;
+      if (nome === 'map') this.map = null;
       return;
     }
     desenhar();
+  }
+
+  // ---- mapa do gosto
+
+  stateOf(id) {
+    return (this.data.map?.points || []).find((p) => p.title_id === id)?.state;
+  }
+
+  renderMap() {
+    const corpo = this.body('map');
+    const mapa = this.data.map;
+    if (!this.data.map_available || !mapa) return;
+    if (!this.map) {
+      corpo.innerHTML = `
+        <div class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div class="min-w-0">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div class="seg" role="group" aria-label="Tipos mostrados no mapa" data-map-kinds>
+                <button type="button" data-kind="" aria-pressed="true">Tudo</button>
+                <button type="button" data-kind="movie" aria-pressed="false">Filmes</button>
+                <button type="button" data-kind="series" aria-pressed="false">Séries</button>
+                <button type="button" data-kind="anime" aria-pressed="false">Animes</button>
+              </div>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button type="button" class="icon-btn" data-map-zoom="in" aria-label="Aproximar" title="Aproximar">+</button>
+                <button type="button" class="icon-btn" data-map-zoom="out" aria-label="Afastar" title="Afastar">−</button>
+                <button type="button" class="rounded-full border border-rule px-3 py-1 text-xs hover:border-silver/60" data-map-zoom="center">Ir ao meu centro</button>
+                <button type="button" class="rounded-full border border-rule px-3 py-1 text-xs hover:border-silver/60" data-map-zoom="reset">Ver tudo</button>
+              </div>
+            </div>
+            <div class="taste-map" data-map data-lenis-prevent>
+              <canvas role="img" aria-label="Mapa do catálogo em duas dimensões: títulos parecidos ficam próximos. Os seus títulos estão destacados e uma mira marca o centro do seu perfil."></canvas>
+              <div class="taste-map__tooltip" data-map-tooltip hidden></div>
+            </div>
+            <p class="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-dim" aria-hidden="true">
+              <span class="inline-flex items-center gap-1.5"><span class="inline-block size-2.5 rounded-full bg-cyan"></span>favorito</span>
+              <span class="inline-flex items-center gap-1.5"><span class="inline-block size-2 rounded-full bg-silver"></span>curti</span>
+              <span class="inline-flex items-center gap-1.5"><span class="text-[0.7rem]">✕</span>não curti</span>
+              <span class="inline-flex items-center gap-1.5"><span class="inline-block size-2.5 rounded-full border border-dashed border-silver"></span>quero assistir</span>
+              <span class="inline-flex items-center gap-1.5"><span class="inline-block size-1.5 rounded-full bg-dim"></span>já vi</span>
+              <span class="inline-flex items-center gap-1.5"><span class="inline-block size-3 rounded-full border-2 border-cyan"></span>centro do perfil</span>
+              <span class="inline-flex items-center gap-1.5">fundo: <span class="inline-block size-1.5 bg-silver/40"></span>filmes <span class="inline-block size-1.5 bg-amber/70"></span>séries <span class="inline-block size-1.5 bg-cyan/70"></span>animes</span>
+            </p>
+            <div class="mt-8" data-map-neighbors></div>
+          </div>
+          <aside class="xl:sticky xl:top-24 xl:self-start" data-map-panel aria-live="polite">
+            <p class="rounded-sm border border-dashed border-rule px-5 py-6 text-sm leading-relaxed text-dim">Clique num ponto para ver o título e avaliá-lo ali mesmo. O centro do perfil se move na hora.</p>
+          </aside>
+        </div>`;
+      this.map = new TasteMap($('[data-map]', corpo), { reduced: this.reduced, onSelect: (id) => this.showMapPanel(id) });
+      this.map.start(mapa).catch((erro) => this.toast(erro.message));
+      this.bindMapControls(corpo);
+    } else {
+      this.map.update(mapa);
+    }
+    this.renderNeighbors(mapa);
+    if (this.selected) this.showMapPanel(this.selected, { keepScroll: true });
+  }
+
+  bindMapControls(corpo) {
+    const botoes = $$('[data-map-kinds] button', corpo);
+    botoes.forEach((botao) => botao.addEventListener('click', () => {
+      botoes.forEach((b) => b.setAttribute('aria-pressed', String(b === botao)));
+      this.map.setKinds(botao.dataset.kind ? [botao.dataset.kind] : ['movie', 'series', 'anime']);
+    }));
+    $$('[data-map-zoom]', corpo).forEach((botao) => botao.addEventListener('click', () => {
+      const acao = botao.dataset.mapZoom;
+      if (acao === 'in') this.map.zoomAt(this.map.w / 2, this.map.h / 2, 1.8, { animate: true });
+      if (acao === 'out') this.map.zoomAt(this.map.w / 2, this.map.h / 2, 1 / 1.8, { animate: true });
+      if (acao === 'center') this.map.focusCenter();
+      if (acao === 'reset') this.map.reset();
+    }));
+  }
+
+  renderNeighbors(mapa) {
+    const lista = $('[data-map-neighbors]');
+    if (!lista) return;
+    if (!mapa.neighbors?.length) {
+      lista.innerHTML = '';
+      return;
+    }
+    lista.innerHTML = `
+      <h3 class="text-sm font-semibold">Perto do seu centro, e ainda fora do perfil</h3>
+      <ul class="mt-3 flex flex-wrap gap-2">
+        ${mapa.neighbors.map((t) => `<li><button type="button" class="chip hover:border-silver/60 hover:text-silver" data-map-select="${t.id}">${esc(t.title)}${t.year ? ` <span class="text-dim">${t.year}</span>` : ''}</button></li>`).join('')}
+      </ul>`;
+  }
+
+  async showMapPanel(id, { keepScroll = false } = {}) {
+    this.selected = id;
+    this.map?.select(id);
+    const painel = $('[data-map-panel]');
+    if (!painel) return;
+    if (!keepScroll) painel.innerHTML = '<p class="px-1 text-sm text-dim">Carregando…</p>';
+    let titulo;
+    try {
+      titulo = await loadTitle(id);
+    } catch (erro) {
+      painel.innerHTML = `<p class="text-sm text-dim">${esc(erro.message)}</p>`;
+      return;
+    }
+    if (this.selected !== id) return;
+    const estado = this.stateOf(id);
+    painel.innerHTML = `
+      <div class="rounded-sm border border-rule bg-night/85 p-5 backdrop-blur-md">
+        <div class="grid grid-cols-[5rem_minmax(0,1fr)] gap-4">
+          <div>${posterHTML(titulo, { size: 'sm' })}</div>
+          <div class="min-w-0">
+            <p class="font-semibold leading-snug">${esc(titulo.title)}</p>
+            <p class="mt-1 text-xs text-dim">${esc(KIND_LABEL[titulo.kind])}${titulo.year ? ` de ${titulo.year}` : ''}${titulo.vote_count ? ` · nota ${fmt.one(titulo.vote_average)}` : ''}</p>
+            <p class="mt-1 text-xs text-dim">${esc(titulo.genres.slice(0, 4).join(', '))}</p>
+            ${estado ? `<p class="mt-2 text-xs text-cyan">No seu perfil: ${esc(STATE_LABEL[estado])}</p>` : ''}
+          </div>
+        </div>
+        ${titulo.overview ? `<p class="mt-4 line-clamp-6 text-sm leading-relaxed text-silver/80">${esc(titulo.overview)}</p>` : ''}
+        <div class="mt-5 flex flex-wrap gap-1.5" role="group" aria-label="Avaliar ${esc(titulo.title)}">
+          ${MAP_ACTIONS.map(([acao, rotulo]) => `
+            <button type="button" data-map-act="${acao}" aria-pressed="${PRESSED[acao](estado)}"
+              class="whitespace-nowrap rounded-full border border-rule px-2.5 py-1 text-xs hover:border-silver/60 aria-pressed:border-cyan aria-pressed:bg-cyan aria-pressed:text-night">${rotulo}</button>`).join('')}
+        </div>
+        <a href="/playground/?similar=${id}" class="mt-5 inline-block text-sm text-dim underline underline-offset-4 hover:text-silver" data-transition-label="Playground">Ver parecidos no playground</a>
+      </div>`;
   }
 
   renderStats() {

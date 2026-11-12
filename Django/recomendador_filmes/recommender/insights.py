@@ -37,6 +37,8 @@ BLIND_MIN_GOOD = 5     # títulos bem avaliados para um grupo contar como ponto 
 GOOD_RATING = 0.75     # "bem avaliado": percentil da nota bayesiana no próprio tipo
 GOOD_VOTES = 0.25      # ...e fora do quartil menos votado
 KIND_PLURAL = {'movie': 'filmes', 'series': 'séries', 'anime': 'animes'}
+MAP_CENTER_NEIGHBORS = 10   # o centro do perfil no mapa é a média destes títulos mais próximos
+MAP_NEIGHBORS_SHOWN = 5     # vizinhos do centro listados abaixo do mapa (fora do histórico)
 
 
 # ---------------------------------------------------------------- metadados do catálogo
@@ -45,16 +47,30 @@ KIND_PLURAL = {'movie': 'filmes', 'series': 'séries', 'anime': 'animes'}
 class CatalogMeta:
     genres: list           # por linha do índice: gêneros do título
     years: np.ndarray      # por linha: ano (nan se desconhecido)
+    coords: np.ndarray     # por linha: (x, y) no mapa do gosto (nan sem projeção)
     genre_share: dict      # gênero -> parcela no catálogo (cada título divide 1 entre os seus gêneros)
     groups: dict           # ('genre' | 'kind' | 'decade', valor) -> linhas do índice
 
+    @property
+    def has_map(self):
+        return bool(np.isfinite(self.coords).all(axis=1).any())
 
-_meta = {'key': None, 'value': None}
+
+_meta = {'key': None, 'value': None, 'map_version': 0}
+
+
+def invalidate_catalog_meta():
+    """Chamado por recommender.projection ao gravar coordenadas novas neste processo."""
+    _meta['map_version'] += 1
 
 
 def catalog_meta(indice):
-    """Gêneros, anos e grupos por linha do índice. Calculado uma vez por índice em memória."""
-    chave = (id(indice), indice.size)
+    """Gêneros, anos, posições e grupos por linha do índice, calculados uma vez por índice.
+
+    A chave usa o fingerprint do catálogo (e não `id(indice)`, que o Python pode reaproveitar
+    para um índice novo) e a versão do mapa, que muda quando a projeção é regravada.
+    """
+    chave = (indice.fingerprint, indice.feature_hash, indice.size, _meta['map_version'])
     if _meta['key'] != chave:
         _meta['value'] = _build_meta(indice)
         _meta['key'] = chave
@@ -62,13 +78,18 @@ def catalog_meta(indice):
 
 
 def _build_meta(indice):
-    anos = dict(Title.objects.values_list('id', 'year'))
+    linhas_db = {i: (ano, x, y) for i, ano, x, y in Title.objects.values_list('id', 'year', 'map_x', 'map_y')}
+    anos = {i: v[0] for i, v in linhas_db.items()}
     generos = defaultdict(list)
     for title_id, nome in Title.genres.through.objects.values_list('title_id', 'genre__name'):
         generos[title_id].append(nome)
 
     por_linha = [sorted(generos.get(int(i), [])) for i in indice.ids]
     years = np.array([anos.get(int(i)) or np.nan for i in indice.ids], dtype=float)
+    coords = np.array(
+        [[np.nan if v is None else v for v in linhas_db.get(int(i), (None, None, None))[1:]] for i in indice.ids],
+        dtype=float,
+    ).reshape(-1, 2)
     parcela = Counter()
     grupos = defaultdict(list)
     for linha, nomes in enumerate(por_linha):
@@ -82,6 +103,7 @@ def _build_meta(indice):
     return CatalogMeta(
         genres=por_linha,
         years=years,
+        coords=coords,
         genre_share={nome: valor / total for nome, valor in parcela.items()},
         groups={chave: np.array(linhas) for chave, linhas in grupos.items()},
     )
@@ -149,6 +171,8 @@ def build_insights(indice, historico, exclude=()):
     return {
         'counts': {'positives': n_pos, 'rated': n_aval, 'total': len(historico)},
         'locks': locks,
+        'map_available': meta.has_map,
+        'map': _map(indice, meta, historico, perfil) if aberto['map'] and meta.has_map else None,
         'excluded': sorted(excluir),
         'avatar': avatar_grid(resumo_total),
         'stats': _stats(historico) if aberto['stats'] else None,
@@ -331,6 +355,41 @@ def _entry_title(indice, linhas, similaridades):
         sim = np.clip(similaridades[linhas], 0, None)
         score = 0.5 * (sim / max(float(sim.max()), 1e-9)) + 0.5 * qualidade
     return int(indice.ids[linhas[int(np.argmax(score))]])
+
+
+def _map(indice, meta, historico, perfil):
+    """Seus títulos no mapa, o centro do perfil e os vizinhos mais próximos dele.
+
+    O t-SNE não projeta pontos novos, então o centro é a média das coordenadas dos títulos
+    mais próximos do vetor de perfil (no cosseno). No modo "e se", ele se move junto.
+    """
+    com_posicao = np.isfinite(meta.coords).all(axis=1)
+    pontos = []
+    for item in historico:
+        linha = indice.row_of.get(item.title_id)
+        if linha is None or not com_posicao[linha]:
+            continue
+        pontos.append({
+            'title_id': item.title_id,
+            'state': item.state,
+            'x': round(float(meta.coords[linha, 0]), 4),
+            'y': round(float(meta.coords[linha, 1]), 4),
+        })
+    if perfil is None:
+        return {'points': pontos, 'center': None, 'neighbor_ids': []}
+
+    similaridades = np.asarray(indice.matrix @ perfil).ravel()
+    similaridades[~com_posicao] = -np.inf
+    ordem = np.argsort(-similaridades, kind='stable')
+    centro = meta.coords[ordem[:MAP_CENTER_NEIGHBORS]].mean(axis=0)
+
+    vistos = {indice.row_of[i.title_id] for i in historico if i.title_id in indice.row_of}
+    vizinhos = [int(indice.ids[r]) for r in ordem[: MAP_NEIGHBORS_SHOWN + len(vistos)] if r not in vistos]
+    return {
+        'points': pontos,
+        'center': {'x': round(float(centro[0]), 4), 'y': round(float(centro[1]), 4)},
+        'neighbor_ids': vizinhos[:MAP_NEIGHBORS_SHOWN],
+    }
 
 
 def _watchlist(indice, historico, perfil):

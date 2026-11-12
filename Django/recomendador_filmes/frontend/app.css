@@ -489,3 +489,34 @@ html.is-loading .loader {
   .switch[aria-checked="true"] .switch__track { background: var(--color-cyan); }
   .switch[aria-checked="true"] .switch__thumb { transform: translateX(0.85rem); background: var(--color-night); }
 }
+
+@layer components {
+  /* Mapa do gosto (canvas 2D). touch-action: none deixa a pinça e o arrasto com o mapa. */
+  .taste-map {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--color-rule);
+    border-radius: 4px;
+    background: rgb(10 19 34 / 0.72);
+    backdrop-filter: blur(6px);
+    touch-action: none;
+  }
+  .taste-map canvas {
+    display: block;
+    width: 100%;
+    cursor: grab;
+  }
+  .taste-map canvas:active { cursor: grabbing; }
+  .taste-map__tooltip {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 15rem;
+    padding: 0.75rem;
+    border: 1px solid var(--color-rule);
+    border-radius: 3px;
+    background: rgb(10 19 34 / 0.94);
+    box-shadow: 0 10px 30px rgb(10 19 34 / 0.6);
+    pointer-events: none;
+  }
+}
