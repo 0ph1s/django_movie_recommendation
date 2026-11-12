@@ -153,19 +153,19 @@ html.is-loading .loader {
   .legible::before {
     content: "";
     position: absolute;
-    inset: -1.25rem -1rem;
+    /* A área passa das letras por mais que o esfumado: o texto fica no miolo opaco. */
+    inset: -3rem -3rem;
     z-index: -1;
     pointer-events: none;
-    background: rgb(10 19 34 / 0.94);
-    --feather: 1.25rem;
+    background: rgb(10 19 34 / 0.8);
+    /* O desfoque transforma os caracteres que vazam pelo véu numa névoa sem forma. */
+    /* Sem prefixos: o Tailwind (Lightning CSS) acrescenta as versões -webkit-. */
+    backdrop-filter: blur(14px);
+    --feather: 2.5rem;
     mask-image:
       linear-gradient(to right, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent),
       linear-gradient(to bottom, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent);
     mask-composite: intersect;
-    -webkit-mask-image:
-      linear-gradient(to right, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent),
-      linear-gradient(to bottom, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent);
-    -webkit-mask-composite: source-in;
   }
 
   /* Retícula em CSS (pôsteres, placeholders). --dot: raio relativo; --cell: passo da grade. */
