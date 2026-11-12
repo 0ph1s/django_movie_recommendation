@@ -60,6 +60,8 @@ export class TasteMap {
     this.selected = null;
     this.hovered = null;
     this.pointers = new Map();
+    this.active = false;                       // só arrasta e dá zoom depois de clicado
+    this.armed = null;
     this.dirty = true;
     this.pulse = 0;
   }
@@ -214,13 +216,27 @@ export class TasteMap {
       return [e.clientX - r.left, e.clientY - r.top];
     };
 
+    // Inativo, o mapa deixa a roda e o toque para a página; um clique (ou toque) sem arrasto o ativa
+    // e um clique fora dele (ou Esc) desativa. Os controles de zoom e tipo contam como "dentro".
+    document.addEventListener('pointerdown', (e) => {
+      if (this.active && !this.raiz.contains(e.target) && !e.target.closest?.('[data-map-controls]')) this.setActive(false);
+    }, true);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.active) this.setActive(false);
+    });
+
     tela.addEventListener('wheel', (e) => {
+      if (!this.active) return;
       e.preventDefault();
       const [px, py] = local(e);
       this.zoomAt(px, py, Math.exp(-e.deltaY * 0.0018));
     }, { passive: false });
 
     tela.addEventListener('pointerdown', (e) => {
+      if (!this.active) {
+        this.armed = { id: e.pointerId, inicio: local(e) };
+        return;
+      }
       // Captura o ponteiro para o arrasto seguir fora do canvas (pode falhar sem um ponteiro ativo).
       try { tela.setPointerCapture(e.pointerId); } catch { /* segue sem captura */ }
       this.pointers.set(e.pointerId, { inicio: local(e), ultimo: local(e) });
@@ -253,6 +269,15 @@ export class TasteMap {
     });
 
     const soltar = (e) => {
+      if (!this.active) {
+        const armado = this.armed;
+        this.armed = null;
+        if (armado?.id === e.pointerId && e.type === 'pointerup') {
+          const [x, y] = local(e);
+          if (Math.hypot(x - armado.inicio[0], y - armado.inicio[1]) <= 6) this.setActive(true);
+        }
+        return;
+      }
       const toque = this.pointers.get(e.pointerId);
       this.pointers.delete(e.pointerId);
       if (this.pointers.size < 2) this.pinch = null;
@@ -271,10 +296,25 @@ export class TasteMap {
       this.hideTooltip();
       this.dirty = true;
     });
-    tela.addEventListener('dblclick', (e) => this.zoomAt(...local(e), 2, { animate: true }));
+    tela.addEventListener('dblclick', (e) => {
+      if (this.active) this.zoomAt(...local(e), 2, { animate: true });
+    });
 
     // Só anima enquanto o mapa está na tela.
     new IntersectionObserver(([entrada]) => { this.onScreen = entrada.isIntersecting; }).observe(tela);
+  }
+
+  setActive(ativo) {
+    if (this.active === ativo) return;
+    this.active = ativo;
+    this.raiz.classList.toggle('is-active', ativo);
+    // Ativo, o Lenis ignora a roda sobre o mapa; inativo, ela rola a página normalmente.
+    this.raiz.toggleAttribute('data-lenis-prevent', ativo);
+    if (!ativo) {
+      this.pointers.clear();
+      this.pinch = null;
+    }
+    this.canvas.style.cursor = '';
   }
 
   pinchDistance() {
@@ -284,7 +324,7 @@ export class TasteMap {
 
   async hover(ponto) {
     const i = this.nearest(...ponto);
-    this.canvas.style.cursor = i === null ? 'grab' : 'pointer';
+    this.canvas.style.cursor = !this.active ? '' : i === null ? 'grab' : 'pointer';
     if (i === this.hovered) {
       if (i !== null) this.placeTooltip(ponto);
       return;
