@@ -92,7 +92,8 @@ function methodSteps(field, reduced) {
 
   const ativar = (passo) => {
     const ativos = new Set(passo.dataset.terms.split(' '));
-    passos.forEach((p) => gsap.to(p, { opacity: p === passo ? 1 : 0.35, duration: duracao }));
+    // Esmaece o conteúdo, não o <li>: o véu de leitura (.legible) continua opaco.
+    passos.forEach((p) => gsap.to(p.children, { opacity: p === passo ? 1 : 0.35, duration: duracao }));
     termos.forEach((t) => gsap.to(t, { opacity: ativos.has(t.dataset.term) ? 1 : 0.4, duration: duracao }));
 
     const tintas = STEP_INKS[passo.dataset.step];
@@ -105,7 +106,7 @@ function methodSteps(field, reduced) {
     }
   };
 
-  gsap.set(passos, { opacity: 0.35 });
+  gsap.set(passos.flatMap((p) => [...p.children]), { opacity: 0.35 });
   passos.forEach((passo) => {
     ScrollTrigger.create({
       trigger: passo,

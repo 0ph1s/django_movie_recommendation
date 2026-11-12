@@ -144,6 +144,30 @@ html.is-loading .loader {
     line-height: 0.84;
   }
 
+  /* Texto corrido sobre o fundo ASCII: um véu da cor do fundo, com bordas esfumadas para
+     não virar um cartão, apaga quase todos os caracteres atrás das letras. */
+  .legible {
+    position: relative;
+    isolation: isolate;
+  }
+  .legible::before {
+    content: "";
+    position: absolute;
+    inset: -1.25rem -1rem;
+    z-index: -1;
+    pointer-events: none;
+    background: rgb(10 19 34 / 0.94);
+    --feather: 1.25rem;
+    mask-image:
+      linear-gradient(to right, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent),
+      linear-gradient(to bottom, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent);
+    mask-composite: intersect;
+    -webkit-mask-image:
+      linear-gradient(to right, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent),
+      linear-gradient(to bottom, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent);
+    -webkit-mask-composite: source-in;
+  }
+
   /* Retícula em CSS (pôsteres, placeholders). --dot: raio relativo; --cell: passo da grade. */
   .screen {
     --cell: 7px;
