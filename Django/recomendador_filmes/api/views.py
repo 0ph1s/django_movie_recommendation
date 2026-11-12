@@ -26,6 +26,7 @@ from recommender.engine import (
     similar_to,
     similarity_matrix,
 )
+from recommender import preferences
 from recommender.models import Interaction, owner_key
 from recommender.profile import Signal
 
@@ -33,6 +34,12 @@ from . import serializers
 
 MAX_PAGE = 60
 MAX_MATRIX = 24
+
+# Cartão "Guardar meu perfil" no playground: aparece com 5 títulos marcados e, se dispensado
+# antes de 15, volta uma única vez ao chegar a 15.
+OFFER_FIRST = 5
+OFFER_AGAIN = 15
+OFFER_SESSION_KEY = 'account_offer_dismissed_at'
 
 
 def _erro(mensagem, status=400):
@@ -180,9 +187,20 @@ def _history(request):
     )
 
 
+def _account_offer(request, total):
+    """Se o playground deve oferecer a criação de conta a este anônimo."""
+    if request.user.is_authenticated or total < OFFER_FIRST:
+        return False
+    dispensado_em = request.session.get(OFFER_SESSION_KEY)
+    return dispensado_em is None or (dispensado_em < OFFER_AGAIN <= total)
+
+
 def _profile_payload(request, historico=None):
     historico = _history(request) if historico is None else historico
-    return {'history': [serializers.interaction(i) for i in historico]}
+    return {
+        'history': [serializers.interaction(i) for i in historico],
+        'account_offer': _account_offer(request, len(historico)),
+    }
 
 
 @require_http_methods(['GET', 'DELETE'])
@@ -217,6 +235,32 @@ def remove_interaction(request, title_id):
     Interaction.objects.filter(owner=owner_key(request), title_id=title_id).delete()
     return JsonResponse(_profile_payload(request))
 
+
+@require_http_methods(['POST'])
+def dismiss_account_offer(request):
+    """“Agora não” no cartão de oferta de conta: guarda quantos títulos havia ao dispensar."""
+    request.session[OFFER_SESSION_KEY] = len(_history(request))
+    return JsonResponse({'account_offer': False})
+
+
+# ---------------------------------------------------------------- preferências
+
+@require_http_methods(['GET', 'PUT', 'DELETE'])
+def user_preferences(request):
+    """Ajustes do filtro híbrido. PUT com um objeto parcial; DELETE restaura os padrões."""
+    if request.method == 'PUT':
+        try:
+            preferences.save(request, preferences.clean(json.loads(request.body or b'{}')))
+        except json.JSONDecodeError:
+            return _erro('Envie um objeto JSON com as preferências.')
+        except ValueError as erro:
+            return _erro(str(erro))
+    elif request.method == 'DELETE':
+        preferences.reset(request)
+    return JsonResponse(preferences.payload(request))
+
+
+# ---------------------------------------------------------------- recomendações
 
 @require_GET
 @catalog_required

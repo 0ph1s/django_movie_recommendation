@@ -134,10 +134,40 @@ consulta é um produto matriz-vetor esparso de ~10–30 ms. O índice é salvo e
 | GET / DELETE | `/api/profile/` | Histórico / limpar perfil |
 | POST | `/api/profile/interactions/` | `{"title_id": 1, "signal": 1 \| -1}` |
 | DELETE | `/api/profile/interactions/<id>/` | Remove um título do perfil |
+| POST | `/api/profile/account-offer/dismiss/` | "Agora não" no cartão que oferece criar conta |
+| GET / PUT / DELETE | `/api/preferences/` | Ajustes do filtro híbrido salvos (PUT parcial; DELETE restaura o padrão) |
 
 Parâmetros do filtro híbrido (todos opcionais): `k`, `alpha`, `rating_weight`, `obscurity`,
 `diversity`, `kinds`. Cada resultado traz `score`, `similarity`, `relevance`, `quality`,
 `contributions` (parcela do cosseno por bloco) e `reasons` (tokens em comum).
+
+## Contas
+
+Cadastro em `/criar-conta/` (e-mail + senha; o username público é gerado, como
+`cinefilo_4821`), login em `/entrar/` e saída por POST em `/sair/`. O usuário é
+`accounts.User`, que entra pelo e-mail.
+
+- **Anônimo continua de primeira classe.** Ao criar conta ou entrar, o histórico da sessão é
+  somado ao da conta (se o mesmo título estiver nos dois, vale a avaliação mais recente) e as
+  preferências da sessão passam para a conta nova. Uma conta que já tinha preferências mantém
+  as suas.
+- **Preferências:** os controles do playground são salvos sozinhos, na sessão ou na conta.
+- **Força bruta:** com o [django-axes](https://github.com/jazzband/django-axes), 5 senhas erradas
+  para o mesmo e-mail, a partir do mesmo IP, bloqueiam novas tentativas por 15 minutos.
+- **Ainda não há** recuperação de senha nem verificação de e-mail (exigem um serviço de envio).
+
+**Banco criado antes das contas.** Trocar o modelo de usuário num banco já migrado não tem
+migração possível (o `migrate` para com `InconsistentMigrationHistory`). O comando abaixo
+recria só as tabelas de usuários, permissões, admin e sessões; catálogo e interações ficam
+intactos. Os usuários existentes são perdidos (ele recusa seguir se houver usuários comuns, a
+menos que receba `--force`):
+
+```powershell
+python manage.py recreate_auth_tables     # pede confirmação; --yes para não perguntar
+python manage.py createsuperuser
+```
+
+Requisitos completos desta fase em [`docs/requisitos-conta-perfil.md`](docs/requisitos-conta-perfil.md).
 
 ## Front-end
 
@@ -176,12 +206,14 @@ cd Django\recomendador_filmes
 python manage.py test
 ```
 
-Cobrem importadores, gravação, comando de importação, features, filtro híbrido, MMR, perfil e a API.
+Cobrem importadores, gravação, comando de importação, features, filtro híbrido, MMR, perfil, a API
+e as contas (cadastro, login, bloqueio, mescla do histórico e preferências).
 
 ## Estrutura
 
 ```
 Django/recomendador_filmes/
+├── accounts/                # usuário (login por e-mail), cadastro, login, axes
 ├── catalog/                 # modelos Title/Genre, importadores e `import_dataset`
 │   └── importers/           # base.py (limpeza), tmdb.py, myanimelist.py, loader.py (upsert)
 ├── recommender/             # o motor
@@ -190,7 +222,8 @@ Django/recomendador_filmes/
 │   ├── quality.py           # nota bayesiana e percentis
 │   ├── profile.py           # perfil dinâmico (Rocchio + recência)
 │   ├── engine.py            # índice, cache, filtro híbrido, MMR, explicações
-│   └── models.py            # Interaction
+│   ├── preferences.py       # preferências do filtro (sessão ou conta)
+│   └── models.py            # Interaction, mescla de histórico, UserPreferences
 ├── api/                     # endpoints JSON
 ├── web/                     # páginas (home, playground)
 ├── templates/               # base.html, web/

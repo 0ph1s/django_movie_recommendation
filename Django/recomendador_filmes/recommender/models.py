@@ -1,5 +1,6 @@
 # recommender/models.py
-from django.db import models
+from django.conf import settings
+from django.db import models, transaction
 
 from catalog.models import Title
 
@@ -43,3 +44,52 @@ class Interaction(models.Model):
 
     def __str__(self):
         return f'{self.owner} {self.get_signal_display()} {self.title}'
+
+
+def merge_history(origem, destino):
+    """Passa o histórico de `origem` para `destino` (ex.: da sessão anônima para a conta).
+
+    Se o mesmo título estiver nos dois, fica a avaliação mais recente. As datas são
+    preservadas (via `update`, que não dispara o auto_now), para que a ordem cronológica que
+    pesa no perfil continue a mesma. Devolve quantos títulos vieram de `origem`.
+    """
+    if not origem or origem == destino:
+        return 0
+    with transaction.atomic():
+        vindas = list(Interaction.objects.select_for_update().filter(owner=origem))
+        if not vindas:
+            return 0
+        existentes = {
+            i.title_id: i
+            for i in Interaction.objects.select_for_update().filter(
+                owner=destino, title_id__in=[v.title_id for v in vindas]
+            )
+        }
+        for vinda in vindas:
+            atual = existentes.get(vinda.title_id)
+            if atual is not None and vinda.updated_at > atual.updated_at:
+                Interaction.objects.filter(pk=atual.pk).update(signal=vinda.signal, updated_at=vinda.updated_at)
+        Interaction.objects.filter(owner=origem, title_id__in=list(existentes)).delete()
+        Interaction.objects.filter(owner=origem).update(owner=destino)
+    return len(vindas)
+
+
+class UserPreferences(models.Model):
+    """Ajustes do filtro híbrido salvos na conta.
+
+    `values` guarda só o que a pessoa mudou (ver recommender.preferences); o resto segue os
+    padrões de config.py, então mudar um padrão alcança quem nunca mexeu naquele controle.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='preferences', verbose_name='usuário',
+    )
+    values = models.JSONField('valores alterados', default=dict, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'preferências'
+        verbose_name_plural = 'preferências'
+
+    def __str__(self):
+        return f'Preferências de {self.user}'

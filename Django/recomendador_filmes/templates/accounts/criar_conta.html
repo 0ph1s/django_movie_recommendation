@@ -1,0 +1,26 @@
+{% extends 'accounts/_layout.html' %}
+
+{% block title %}Criar conta | Ângulo{% endblock %}
+{% block heading %}Criar conta{% endblock %}
+{% block lead %}
+  Seu perfil de gosto passa a viver na conta, e não só neste navegador. Tudo o que você já
+  marcou no playground entra junto.
+{% endblock %}
+
+{% block form %}
+<form method="post" novalidate class="space-y-6">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  {% for erro in form.non_field_errors %}<p class="text-sm text-amber">{{ erro }}</p>{% endfor %}
+  {% include 'accounts/_field.html' with field=form.email %}
+  {% include 'accounts/_field.html' with field=form.password %}
+  <p class="text-xs leading-relaxed text-dim">
+    Ainda não há recuperação de senha por e-mail. Guarde a senha num gerenciador.
+  </p>
+  <button type="submit" class="w-full rounded-full bg-silver px-5 py-3 text-sm font-semibold text-night hover:bg-cyan">Criar conta</button>
+  <p class="text-center text-sm text-dim">
+    Já tem conta?
+    <a href="{% url 'accounts:login' %}?next={{ next|urlencode }}" class="text-silver underline underline-offset-4" data-transition-label="Entrar">Entrar</a>
+  </p>
+</form>
+{% endblock %}

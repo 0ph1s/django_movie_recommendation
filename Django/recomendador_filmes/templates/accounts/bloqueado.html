@@ -1,0 +1,18 @@
+{% extends 'accounts/_layout.html' %}
+
+{% block title %}Muitas tentativas | Ângulo{% endblock %}
+{% block heading %}Pausa{% endblock %}
+{% block lead %}
+  Foram muitas senhas erradas para este e-mail a partir desta rede. Por segurança, novas
+  tentativas ficam bloqueadas por 15 minutos.
+{% endblock %}
+
+{% block form %}
+<div class="space-y-6">
+  <p class="text-sm leading-relaxed text-silver/80">
+    Enquanto isso, o playground continua aberto: o que você marcar sem conta é somado ao seu
+    perfil quando você entrar.
+  </p>
+  <a href="{% url 'web:playground' %}" class="block w-full rounded-full bg-silver px-5 py-3 text-center text-sm font-semibold text-night hover:bg-cyan">Voltar ao playground</a>
+</div>
+{% endblock %}

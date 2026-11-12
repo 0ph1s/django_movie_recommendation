@@ -144,30 +144,6 @@ html.is-loading .loader {
     line-height: 0.84;
   }
 
-  /* Texto corrido sobre o fundo ASCII: um véu da cor do fundo, com bordas esfumadas para
-     não virar um cartão, apaga quase todos os caracteres atrás das letras. */
-  .legible {
-    position: relative;
-    isolation: isolate;
-  }
-  .legible::before {
-    content: "";
-    position: absolute;
-    /* A área passa das letras por mais que o esfumado: o texto fica no miolo opaco. */
-    inset: -3rem -3rem;
-    z-index: -1;
-    pointer-events: none;
-    background: rgb(10 19 34 / 0.3);
-    /* O desfoque transforma os caracteres que vazam pelo véu numa névoa sem forma. */
-    /* Sem prefixos: o Tailwind (Lightning CSS) acrescenta as versões -webkit-. */
-    backdrop-filter: blur(14px);
-    --feather: 2.5rem;
-    mask-image:
-      linear-gradient(to right, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent),
-      linear-gradient(to bottom, transparent, #000 var(--feather), #000 calc(100% - var(--feather)), transparent);
-    mask-composite: intersect;
-  }
-
   /* Retícula em CSS (pôsteres, placeholders). --dot: raio relativo; --cell: passo da grade. */
   .screen {
     --cell: 7px;
@@ -264,13 +240,15 @@ html.is-loading .loader {
     box-shadow: 0 0 0 1px var(--color-silver);
   }
 
+  /* Vidro fosco: um véu claro e translúcido, com borda e brilho no topo. */
   .seg {
     display: inline-flex;
-    border: 1px solid var(--color-rule);
+    border: 1px solid rgb(216 222 232 / 0.12);
     border-radius: 999px;
     padding: 3px;
-    background: rgb(10 19 34 / 0.72);
-    backdrop-filter: blur(8px);
+    background: rgb(216 222 232 / 0.05);
+    box-shadow: inset 0 1px 0 rgb(216 222 232 / 0.08);
+    backdrop-filter: blur(12px) saturate(1.5);
   }
   .seg > button {
     padding: 0.3rem 0.85rem;
@@ -318,3 +296,32 @@ html.is-loading .loader {
 @media (prefers-reduced-motion: reduce) {
   html.is-entering body::after { display: none; }
 }
+
+/* Avisos (django.contrib.messages): entram de baixo e somem sozinhos depois de 9 s (o relógio corre já durante a cortina da transição). */
+.toast {
+  animation: toast-in 0.6s var(--ease-out-expo) both, toast-out 0.5s 9s forwards;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(12px); }
+}
+@keyframes toast-out {
+  to { opacity: 0; visibility: hidden; transform: translateY(6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: toast-out 0s 9s forwards; }
+}
+
+/* Menu da conta: <details> sem o triângulo padrão. */
+.account-menu > summary::-webkit-details-marker { display: none; }
+
+/* Formulários de conta: campo com sublinhado, como a busca do playground. */
+.field-input {
+  width: 100%;
+  border-bottom: 1px solid var(--color-rule);
+  background: transparent;
+  padding: 0.5rem 0;
+  font-size: 1.25rem;
+  color: var(--color-silver);
+}
+.field-input:focus { border-color: var(--color-cyan); outline: none; }
+.field-input[aria-invalid="true"] { border-color: var(--color-amber); }

@@ -8,6 +8,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 
 from api.serializers import title_card
 from catalog.models import Genre, Title
+from recommender import preferences
 from recommender.config import get_config
 
 FEATURED_PER_KIND = 4
@@ -39,10 +40,14 @@ def home(request):
 
 @ensure_csrf_cookie
 def playground(request):
+    # Os controles já nascem com as preferências salvas (sem piscar nos valores padrão).
+    prefs = preferences.payload(request)
     return render(request, 'web/playground.html', {
         'page': 'playground',
         'kinds': Title.Kind.choices,
         'total_titles': Title.objects.count(),
+        'prefs': prefs['values'],
+        'prefs_customized': prefs['customized'],
     })
 
 

@@ -1,0 +1,23 @@
+{% extends 'accounts/_layout.html' %}
+
+{% block title %}Entrar | Ângulo{% endblock %}
+{% block heading %}Entrar{% endblock %}
+{% block lead %}
+  O que você marcou neste navegador sem conta é somado ao perfil salvo. Se um título estiver
+  nos dois, vale a avaliação mais recente.
+{% endblock %}
+
+{% block form %}
+<form method="post" novalidate class="space-y-6">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  {% for erro in form.non_field_errors %}<p class="text-sm text-amber" role="alert">{{ erro }}</p>{% endfor %}
+  {% include 'accounts/_field.html' with field=form.username %}
+  {% include 'accounts/_field.html' with field=form.password %}
+  <button type="submit" class="w-full rounded-full bg-silver px-5 py-3 text-sm font-semibold text-night hover:bg-cyan">Entrar</button>
+  <p class="text-center text-sm text-dim">
+    Ainda não tem conta?
+    <a href="{% url 'accounts:signup' %}?next={{ next|urlencode }}" class="text-silver underline underline-offset-4" data-transition-label="Criar conta">Criar conta</a>
+  </p>
+</form>
+{% endblock %}

@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 import os
+import sys
+from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -70,6 +72,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'axes',
+    'accounts',
     'catalog',
     'recommender',
     'api',
@@ -85,6 +89,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Por último: responde com a tela de bloqueio quando o axes barra uma tentativa de login.
+    'axes.middleware.AxesMiddleware',
 ]
 
 ROOT_URLCONF = 'recomendador_filmes.urls'
@@ -146,6 +152,33 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+
+# Contas: login pelo e-mail (accounts.User). O axes vem primeiro para barrar tentativas
+# de quem já errou demais antes mesmo de conferir a senha.
+AUTH_USER_MODEL = 'accounts.User'
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+LOGIN_URL = 'accounts:login'
+LOGIN_REDIRECT_URL = 'web:playground'
+
+# django-axes: 5 senhas erradas para o mesmo e-mail, a partir do mesmo IP, bloqueiam por
+# 15 minutos. O estado fica no banco, então vale entre as instâncias do Vercel.
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=15)
+AXES_LOCKOUT_PARAMETERS = [['ip_address', 'username']]
+AXES_RESET_ON_SUCCESS = True
+AXES_LOCKOUT_TEMPLATE = 'accounts/bloqueado.html'
+AXES_CLIENT_IP_CALLABLE = 'accounts.security.client_ip'
+AXES_USERNAME_CALLABLE = 'accounts.security.login_username'
+AXES_VERBOSE = False
+
+# Nos testes, um hash de senha rápido: o PBKDF2 é lento de propósito e multiplicaria o tempo
+# da suíte (cada cadastro e login dos testes faz um hash).
+if 'test' in sys.argv[1:2]:
+    PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 
 
 # Internationalization

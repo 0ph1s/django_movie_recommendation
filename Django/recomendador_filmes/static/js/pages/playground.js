@@ -56,8 +56,12 @@ class Playground {
       results: $('[data-results]', raiz),
       matrixSection: $('[data-matrix-section]', raiz),
       matrix: $('[data-matrix]', raiz),
+      prefsReset: $('[data-prefs-reset]', raiz),
+      offer: $('[data-offer]', raiz),
+      offerDismiss: $('[data-offer-dismiss]', raiz),
     };
     this.refreshSoon = debounce(() => this.refresh(), 140);
+    this.savePrefsSoon = debounce(() => this.savePrefs(), 600);
   }
 
   async start() {
@@ -111,8 +115,15 @@ class Playground {
 
     el.reset.addEventListener('click', async () => {
       const dados = await api('profile/', { method: 'DELETE' });
-      this.setHistory(dados.history);
+      this.applyProfile(dados);
       this.refresh();
+    });
+
+    el.prefsReset.addEventListener('click', () => this.resetPrefs());
+
+    el.offerDismiss?.addEventListener('click', async () => {
+      this.renderOffer(false);
+      await api('profile/account-offer/dismiss/', { method: 'POST' }).catch(() => {});
     });
 
     el.tabs.forEach((aba) => aba.addEventListener('click', () => {
@@ -125,12 +136,14 @@ class Playground {
       this.showSlider(slider);
       if (slider.dataset.param === 'alpha') this.syncInks();
       this.refreshSoon();
+      this.savePrefsSoon();
     }));
 
     el.recKinds.forEach((caixa) => caixa.addEventListener('change', () => {
       // Pelo menos um tipo precisa ficar marcado.
       if (!el.recKinds.some((c) => c.checked)) caixa.checked = true;
       this.refreshSoon();
+      this.savePrefsSoon();
     }));
   }
 
@@ -238,8 +251,24 @@ class Playground {
   // ------------------------------------------------------------ perfil
 
   async loadProfile() {
-    const dados = await api('profile/');
+    this.applyProfile(await api('profile/'));
+  }
+
+  /** Resposta de qualquer endpoint do perfil: histórico + se cabe oferecer uma conta. */
+  applyProfile(dados) {
     this.setHistory(dados.history);
+    this.renderOffer(dados.account_offer);
+  }
+
+  /** Cartão "Guardar meu perfil" (só existe para anônimos). */
+  renderOffer(mostrar) {
+    const cartao = this.el.offer;
+    if (!cartao) return;
+    const estava = !cartao.classList.contains('hidden');
+    cartao.classList.toggle('hidden', !mostrar);
+    if (mostrar && !estava && !this.reduced) {
+      gsap.fromTo(cartao, { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: 'expo.out' });
+    }
   }
 
   setHistory(historico) {
@@ -262,7 +291,7 @@ class Playground {
     this.renderHistory();
     try {
       const dados = await api('profile/interactions/', { method: 'POST', body: { title_id: card.id, signal: sinal } });
-      this.setHistory(dados.history);
+      this.applyProfile(dados);
     } catch (erro) {
       this.el.resultsNote.textContent = erro.message;
       await this.loadProfile();
@@ -276,7 +305,7 @@ class Playground {
     this.paintSignal(id);
     this.renderHistory();
     const dados = await api(`profile/interactions/${id}/`, { method: 'DELETE' });
-    this.setHistory(dados.history);
+    this.applyProfile(dados);
     this.refresh();
   }
 
@@ -330,6 +359,34 @@ class Playground {
     return { ...valores, k: RESULTS, kinds: tipos.length === this.el.recKinds.length ? '' : tipos };
   }
 
+  /** Os controles valem como preferência: salvos na conta ou, para o anônimo, na sessão. */
+  async savePrefs() {
+    const { k, kinds, ...valores } = this.params();
+    try {
+      const dados = await api('preferences/', { method: 'PUT', body: { ...valores, kinds: kinds || [] }, channel: 'prefs' });
+      this.el.prefsReset.disabled = !dados.customized;
+    } catch { /* falhar ao salvar não atrapalha o uso: os controles seguem valendo nesta página */ }
+  }
+
+  async resetPrefs() {
+    let dados;
+    try {
+      dados = await api('preferences/', { method: 'DELETE', channel: 'prefs' });
+    } catch (erro) {
+      if (!isAbort(erro)) this.el.resultsNote.textContent = erro.message;
+      return;
+    }
+    const { values } = dados;
+    this.el.sliders.forEach((slider) => {
+      slider.value = values[slider.dataset.param];
+      this.showSlider(slider);
+    });
+    this.el.recKinds.forEach((caixa) => { caixa.checked = !values.kinds.length || values.kinds.includes(caixa.value); });
+    this.el.prefsReset.disabled = true;
+    this.syncInks();
+    this.refresh();
+  }
+
   showSlider(slider) {
     const valor = Number(slider.value);
     const saida = $(`[data-out="${slider.dataset.param}"]`);
@@ -376,7 +433,7 @@ class Playground {
         ? await api(`titles/${this.similar.id}/similar/`, { params: this.params(), channel: 'recs' })
         : await api('recommendations/', { params: this.params(), channel: 'recs' });
 
-      if (dados.history) this.setHistory(dados.history);
+      if (dados.history) this.applyProfile(dados);
       this.remember(dados.results);
       this.renderNote(dados);
       this.renderResults(dados.results, dados.params.alpha);
