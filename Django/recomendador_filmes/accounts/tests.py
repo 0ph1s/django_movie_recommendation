@@ -25,7 +25,7 @@ class ContaTestCase(ApiTestCase):
         return [str(m) for m in resposta.context['messages']] if resposta.context else []
 
     def historico(self, dono):
-        return {i.title.title: i.signal for i in Interaction.objects.filter(owner=dono).select_related('title')}
+        return {i.title.title: i.legacy_signal for i in Interaction.objects.filter(owner=dono).select_related('title')}
 
 
 class CadastroTests(ContaTestCase):
@@ -113,8 +113,8 @@ class MesclaTests(ContaTestCase):
     def test_login_mescla_e_a_avaliacao_mais_recente_vence(self):
         user = User.objects.create_user('ana@exemplo.com', SENHA)
         antigo = timezone.now() - timedelta(days=3)
-        Interaction.objects.create(owner=user.owner, title_id=self.pk('Space Odyssey'), signal=1)
-        Interaction.objects.create(owner=user.owner, title_id=self.pk('Space Return'), signal=1)
+        Interaction.objects.create(owner=user.owner, title_id=self.pk('Space Odyssey'), state='like')
+        Interaction.objects.create(owner=user.owner, title_id=self.pk('Space Return'), state='like')
         Interaction.objects.filter(owner=user.owner).update(updated_at=antigo)
 
         self.curtir('Space Odyssey', sinal=-1)   # mais recente que a da conta: vence
@@ -131,14 +131,14 @@ class MesclaTests(ContaTestCase):
         self.curtir('Space Odyssey', sinal=-1)
         sessao = f's:{self.client.session.session_key}'
         Interaction.objects.filter(owner=sessao).update(updated_at=timezone.now() - timedelta(days=1))
-        Interaction.objects.create(owner=user.owner, title_id=self.pk('Space Odyssey'), signal=1)
+        Interaction.objects.create(owner=user.owner, title_id=self.pk('Space Odyssey'), state='like')
 
         self.entrar()
         self.assertEqual(self.historico(user.owner), {'Space Odyssey': 1})
 
     def test_mescla_preserva_a_ordem_cronologica(self):
-        Interaction.objects.create(owner='s:x', title_id=self.pk('Space Odyssey'), signal=1)
-        Interaction.objects.create(owner='u:1', title_id=self.pk('Paris Rain'), signal=1)
+        Interaction.objects.create(owner='s:x', title_id=self.pk('Space Odyssey'), state='like')
+        Interaction.objects.create(owner='u:1', title_id=self.pk('Paris Rain'), state='like')
         Interaction.objects.filter(owner='s:x').update(updated_at=timezone.now() - timedelta(days=2))
         self.assertEqual(merge_history('s:x', 'u:1'), 1)
         ordem = list(Interaction.objects.filter(owner='u:1').values_list('title__title', flat=True))

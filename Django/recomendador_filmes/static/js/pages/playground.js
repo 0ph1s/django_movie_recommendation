@@ -13,8 +13,35 @@ import { posterCaption, posterHTML } from '../lib/poster.js';
 const PAGE_SIZE = 24;
 const RESULTS = 12;
 const BLOCK_LABEL = { synopsis: 'sinopse', tags: 'etiquetas', attributes: 'atributos' };
-const LIKE = 1;
-const DISLIKE = -1;
+
+// Estado de um título no perfil (um por título). Favorito e curti formam o perfil; "já vi" e
+// "quero assistir" só tiram o título das recomendações.
+const POSITIVE = new Set(['favorite', 'like']);
+const STATE_LABEL = {
+  favorite: 'favorito', like: 'curti', dislike: 'não curti', seen: 'já vi', watchlist: 'quero assistir',
+};
+// O que cada botão faz a partir do estado atual (null = tira o título do perfil).
+const NEXT_STATE = {
+  like: (atual) => (POSITIVE.has(atual) ? null : 'like'),
+  dislike: (atual) => (atual === 'dislike' ? null : 'dislike'),
+  favorite: (atual) => (atual === 'favorite' ? 'like' : 'favorite'),
+  watchlist: (atual) => (atual === 'watchlist' ? null : 'watchlist'),
+  seen: (atual) => (atual === 'seen' ? null : 'seen'),
+};
+// Se o botão aparece pressionado em cada estado.
+const PRESSED = {
+  like: (estado) => POSITIVE.has(estado),
+  dislike: (estado) => estado === 'dislike',
+  favorite: (estado) => estado === 'favorite',
+  watchlist: (estado) => estado === 'watchlist',
+  seen: (estado) => estado === 'seen',
+};
+
+const ICON = {
+  star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="icon-fill" d="M12 3.6l2.55 5.2 5.75.83-4.16 4.06.98 5.72L12 16.71l-5.12 2.7.98-5.72L3.7 9.63l5.75-.83z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
+  bookmark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="icon-fill" d="M6.5 3.75h11v16.5L12 16.2l-5.5 4.05z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
+  more: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+};
 
 const $ = (seletor, raiz = document) => raiz.querySelector(seletor);
 const $$ = (seletor, raiz = document) => [...raiz.querySelectorAll(seletor)];
@@ -31,7 +58,7 @@ class Playground {
     this.field = field;
     this.reduced = reduced;
     this.catalog = { q: '', kind: '', offset: 0, total: 0, first: true };
-    this.history = new Map();   // title_id -> { signal, title }
+    this.history = new Map();   // title_id -> { state, title }
     this.mode = 'profile';
     this.similar = null;        // card do título de referência no modo "parecidos"
 
@@ -99,18 +126,31 @@ class Playground {
 
     // Ações dos pôsteres (catálogo e recomendações) por delegação.
     document.addEventListener('click', (evento) => {
+      // Um clique fora fecha os menus "⋯" abertos.
+      $$('details[data-more][open]').forEach((menu) => {
+        if (!menu.contains(evento.target)) menu.removeAttribute('open');
+      });
       const botao = evento.target.closest('[data-act]');
       if (!botao) return;
       const id = Number(botao.closest('[data-id]').dataset.id);
       const card = this.cards.get(id);
-      if (botao.dataset.act === 'like') this.toggleSignal(card, LIKE);
-      if (botao.dataset.act === 'dislike') this.toggleSignal(card, DISLIKE);
-      if (botao.dataset.act === 'similar') this.showSimilar(card);
+      const acao = botao.dataset.act;
+      botao.closest('details')?.removeAttribute('open');
+      if (acao === 'similar') this.showSimilar(card);
+      else if (NEXT_STATE[acao]) this.changeState(card, NEXT_STATE[acao](this.history.get(id)?.state));
+    });
+
+    document.addEventListener('keydown', (evento) => {
+      if (evento.key !== 'Escape') return;
+      $$('details[data-more][open]').forEach((menu) => {
+        menu.removeAttribute('open');
+        menu.querySelector('summary').focus();
+      });
     });
 
     el.history.addEventListener('click', (evento) => {
       const botao = evento.target.closest('[data-remove]');
-      if (botao) this.removeSignal(Number(botao.dataset.remove));
+      if (botao) this.removeState(Number(botao.dataset.remove));
     });
 
     el.reset.addEventListener('click', async () => {
@@ -211,40 +251,62 @@ class Playground {
   }
 
   catalogItem(t) {
-    const sinal = this.history.get(t.id)?.signal;
+    const estado = this.history.get(t.id)?.state;
     return `
-      <li data-id="${t.id}" data-signal="${sinal || ''}" class="group/item data-[signal='-1']:opacity-55">
+      <li data-id="${t.id}" data-state="${estado || ''}" class="catalog-item group/item relative data-[state=dislike]:opacity-55 data-[state=seen]:opacity-75">
         <button type="button" data-act="similar" aria-label="Ver parecidos com ${esc(t.title)}"
-          class="block w-full rounded-[4px] text-left ring-offset-4 ring-offset-night group-data-[signal='1']/item:ring-2 group-data-[signal='1']/item:ring-cyan">
+          class="block w-full rounded-[4px] text-left ring-offset-4 ring-offset-night group-data-[state=like]/item:ring-2 group-data-[state=like]/item:ring-cyan group-data-[state=favorite]/item:ring-2 group-data-[state=favorite]/item:ring-cyan">
           ${posterHTML(t)}
         </button>
+        <div class="poster-actions absolute right-1.5 top-1.5 z-10 flex flex-col items-end gap-1" role="group" aria-label="Mais ações para ${esc(t.title)}">
+          ${this.stateButtons(t, estado)}
+        </div>
         ${posterCaption(t)}
         <p class="${t.poster_url ? 'mt-0.5' : 'mt-2.5'} line-clamp-1 text-xs text-dim">${esc(t.genres.slice(0, 3).join(', ') || KIND_LABEL[t.kind])}</p>
-        ${this.actions(t, sinal, { similar: false })}
+        ${this.actions(t, estado, { similar: false })}
       </li>`;
   }
 
-  actions(t, sinal, { compact = false, similar = true } = {}) {
+  actions(t, estado, { compact = false, similar = true } = {}) {
     const base = 'whitespace-nowrap rounded-full border px-2.5 py-1 text-xs transition-colors';
     const tamanho = compact ? '' : 'flex-1';
     return `
-      <div class="mt-2 flex gap-1.5" role="group" aria-label="Avaliar ${esc(t.title)}">
-        <button type="button" data-act="like" aria-pressed="${sinal === LIKE}"
+      <div class="mt-2 flex items-center gap-1.5" role="group" aria-label="Avaliar ${esc(t.title)}">
+        <button type="button" data-act="like" aria-pressed="${PRESSED.like(estado)}"
           class="${base} ${tamanho} border-rule hover:border-cyan aria-pressed:border-cyan aria-pressed:bg-cyan aria-pressed:text-night">Curti</button>
-        <button type="button" data-act="dislike" aria-pressed="${sinal === DISLIKE}"
+        <button type="button" data-act="dislike" aria-pressed="${PRESSED.dislike(estado)}"
           class="${base} ${tamanho} border-rule hover:border-silver/60 aria-pressed:border-silver aria-pressed:bg-silver aria-pressed:text-night">Não curti</button>
         ${similar ? `<button type="button" data-act="similar" aria-label="Ver parecidos com ${esc(t.title)}"
           class="${base} border-rule hover:border-silver/60">Parecidos</button>` : ''}
+        ${compact ? `<span class="ml-auto flex items-center gap-1">${this.stateButtons(t, estado)}</span>` : ''}
       </div>`;
   }
 
+  /** ★ favorito, 🔖 quero assistir e o menu "⋯" com "já vi, sem opinião". */
+  stateButtons(t, estado) {
+    return `
+      <button type="button" class="icon-btn" data-act="favorite" aria-pressed="${PRESSED.favorite(estado)}"
+        aria-label="Favorito: ${esc(t.title)}" title="Favorito (conta em dobro no perfil)">${ICON.star}</button>
+      <button type="button" class="icon-btn" data-act="watchlist" aria-pressed="${PRESSED.watchlist(estado)}"
+        aria-label="Quero assistir: ${esc(t.title)}" title="Quero assistir">${ICON.bookmark}</button>
+      <details class="more" data-more ${PRESSED.seen(estado) ? 'data-on' : ''}>
+        <summary class="icon-btn" aria-label="Mais opções para ${esc(t.title)}" title="Mais opções">${ICON.more}</summary>
+        <div class="more__menu">
+          <button type="button" data-act="seen" aria-pressed="${PRESSED.seen(estado)}">Já vi, sem opinião</button>
+        </div>
+      </details>`;
+  }
+
   /** Atualiza o estado visual de um título em todas as listas onde ele aparece. */
-  paintSignal(id) {
-    const sinal = this.history.get(id)?.signal;
+  paintState(id) {
+    const estado = this.history.get(id)?.state;
     $$(`[data-id="${id}"]`).forEach((item) => {
-      item.dataset.signal = sinal || '';
-      $$('[data-act="like"]', item).forEach((b) => b.setAttribute('aria-pressed', String(sinal === LIKE)));
-      $$('[data-act="dislike"]', item).forEach((b) => b.setAttribute('aria-pressed', String(sinal === DISLIKE)));
+      item.dataset.state = estado || '';
+      $$('[data-act]', item).forEach((botao) => {
+        const pressionado = PRESSED[botao.dataset.act];
+        if (pressionado) botao.setAttribute('aria-pressed', String(pressionado(estado)));
+      });
+      $$('[data-more]', item).forEach((menu) => menu.toggleAttribute('data-on', PRESSED.seen(estado)));
     });
   }
 
@@ -273,36 +335,37 @@ class Playground {
 
   setHistory(historico) {
     const anteriores = new Set(this.history.keys());
-    this.history = new Map(historico.map((h) => [h.title.id, { signal: h.signal, title: h.title }]));
+    this.history = new Map(historico.map((h) => [h.title.id, { state: h.state, title: h.title }]));
     this.remember(historico.map((h) => h.title));
-    new Set([...anteriores, ...this.history.keys()]).forEach((id) => this.paintSignal(id));
+    new Set([...anteriores, ...this.history.keys()]).forEach((id) => this.paintState(id));
     this.renderHistory();
   }
 
-  async toggleSignal(card, sinal) {
-    if (this.history.get(card.id)?.signal === sinal) {
-      this.removeSignal(card.id);
+  /** Muda o estado de um título (null tira do perfil). */
+  async changeState(card, estado) {
+    if (!estado) {
+      this.removeState(card.id);
       return;
     }
     // Otimista: a interface responde antes do servidor.
     this.history.delete(card.id);
-    this.history.set(card.id, { signal: sinal, title: card });
-    this.paintSignal(card.id);
+    this.history.set(card.id, { state: estado, title: card });
+    this.paintState(card.id);
     this.renderHistory();
     try {
-      const dados = await api('profile/interactions/', { method: 'POST', body: { title_id: card.id, signal: sinal } });
+      const dados = await api('profile/interactions/', { method: 'POST', body: { title_id: card.id, state: estado } });
       this.applyProfile(dados);
     } catch (erro) {
       this.el.resultsNote.textContent = erro.message;
       await this.loadProfile();
     }
-    if (this.mode === 'similar' && sinal === LIKE && !this.reduced) this.pulseTab('profile');
+    if (this.mode === 'similar' && POSITIVE.has(estado) && !this.reduced) this.pulseTab('profile');
     this.refresh();
   }
 
-  async removeSignal(id) {
+  async removeState(id) {
     this.history.delete(id);
-    this.paintSignal(id);
+    this.paintState(id);
     this.renderHistory();
     const dados = await api(`profile/interactions/${id}/`, { method: 'DELETE' });
     this.applyProfile(dados);
@@ -317,11 +380,11 @@ class Playground {
       el.history.innerHTML = '<li class="text-sm leading-relaxed text-dim">Nenhum título marcado ainda. Use “Curti” nos pôsteres do catálogo.</li>';
       return;
     }
-    el.history.innerHTML = itens.map(({ signal, title }) => `
+    el.history.innerHTML = itens.map(({ state, title }) => `
       <li>
-        <button type="button" data-remove="${title.id}" aria-label="Tirar ${esc(title.title)} do perfil"
-          class="chip group ${signal === LIKE ? 'border-cyan/70 text-silver' : 'text-dim line-through'} hover:border-silver">
-          <span class="inline-block size-1.5 rounded-full ${signal === LIKE ? 'bg-cyan' : 'bg-dim'}" aria-hidden="true"></span>
+        <button type="button" data-remove="${title.id}" aria-label="Tirar ${esc(title.title)} do perfil (${STATE_LABEL[state]})"
+          title="${esc(STATE_LABEL[state])}" class="chip group ${chipClass(state)} hover:border-silver">
+          ${chipMark(state)}
           ${esc(title.title)}
           <span class="text-dim group-hover:text-silver" aria-hidden="true">×</span>
         </button>
@@ -514,10 +577,10 @@ class Playground {
     const decomposicao = r.similarity
       ? `cos ${fmt.two(r.similarity)} = ${Object.entries(r.contributions).map(([b, v]) => `${BLOCK_LABEL[b]} ${fmt.two(v)}`).join(' + ')}`
       : '';
-    const sinal = this.history.get(r.id)?.signal;
+    const estado = this.history.get(r.id)?.state;
 
     return `
-      <li data-flip-id="r-${r.id}" data-id="${r.id}" data-signal="${sinal || ''}" class="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-3 rounded-sm px-2 py-3 hover:bg-deep/80">
+      <li data-flip-id="r-${r.id}" data-id="${r.id}" data-state="${estado || ''}" class="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-3 rounded-sm px-2 py-3 hover:bg-deep/80">
         <div class="pt-0.5">${posterHTML(r, { size: 'sm' })}</div>
         <div class="min-w-0">
           <div class="flex items-baseline justify-between gap-3">
@@ -534,7 +597,7 @@ class Playground {
           </div>
           ${decomposicao ? `<p class="mt-1.5 text-[0.6875rem] tabular-nums text-dim">${esc(decomposicao)}</p>` : ''}
           ${r.reasons.length ? `<ul class="mt-2 flex flex-wrap gap-1.5" aria-label="Em comum">${r.reasons.map((m) => `<li class="chip" title="${esc(m.group)}">${esc(m.label)}</li>`).join('')}</ul>` : ''}
-          ${this.actions(r, sinal, { compact: true })}
+          ${this.actions(r, estado, { compact: true })}
         </div>
       </li>`;
   }
@@ -555,7 +618,7 @@ class Playground {
     if (this.mode === 'similar' && this.similar) {
       ids = [this.similar.id, ...dados.results.slice(0, 6).map((r) => r.id)];
     } else {
-      const curtidos = [...this.history.entries()].filter(([, h]) => h.signal === LIKE).map(([id]) => id).slice(-4);
+      const curtidos = [...this.history.entries()].filter(([, h]) => POSITIVE.has(h.state)).map(([id]) => id).slice(-4);
       ids = curtidos.length ? [...curtidos, ...dados.results.slice(0, 4).map((r) => r.id)] : [];
     }
     if (ids.length < 2) {
@@ -571,6 +634,23 @@ class Playground {
       if (!isAbort(erro)) el.matrixSection.classList.add('hidden');
     }
   }
+}
+
+function chipClass(estado) {
+  return {
+    favorite: 'border-cyan/70 text-silver',
+    like: 'border-cyan/70 text-silver',
+    dislike: 'text-dim line-through',
+    seen: 'text-dim',
+    watchlist: 'border-dashed text-silver/80',
+  }[estado] || '';
+}
+
+function chipMark(estado) {
+  if (estado === 'favorite') return '<span class="chip__icon text-cyan" aria-hidden="true">' + ICON.star + '</span>';
+  if (estado === 'watchlist') return '<span class="chip__icon text-silver/80" aria-hidden="true">' + ICON.bookmark + '</span>';
+  if (estado === 'seen') return '<span class="text-[0.625rem] text-dim" aria-hidden="true">✓</span>';
+  return `<span class="inline-block size-1.5 rounded-full ${estado === 'like' ? 'bg-cyan' : 'bg-dim'}" aria-hidden="true"></span>`;
 }
 
 function truncate(texto, limite) {

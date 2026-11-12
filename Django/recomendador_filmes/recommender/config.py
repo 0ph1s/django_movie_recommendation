@@ -33,6 +33,7 @@ class RecommenderConfig:
 
     # Perfil dinâmico do usuário (Rocchio com decaimento por recência).
     dislike_weight: float = 0.5  # o quanto os "não curti" afastam o perfil
+    favorite_weight: float = 2.0  # um favorito pesa como N "curti" no perfil
     recency_half_life: float = 6  # a cada N interações mais antigas, o peso cai pela metade
 
     index_path: Path = Path('var/recommender_index.joblib')

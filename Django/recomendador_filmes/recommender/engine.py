@@ -256,9 +256,10 @@ def similar_to(indice, title_id, params):
 
 
 def recommend_for_profile(indice, sinais, params):
-    """Recomendações para um histórico de sinais (curti / não curti).
+    """Recomendações para um histórico de sinais (ver recommender.profile.Signal).
 
-    Devolve (recomendações, vetor de perfil). Sem nenhum "curti" o perfil é None e o
+    Todos os títulos do histórico saem do resultado, inclusive os de peso 0 (já vi, quero
+    assistir). Devolve (recomendações, vetor de perfil). Sem nenhum positivo o perfil é None e o
     resultado cai no ranking de qualidade (partida a frio).
     """
     config = get_config()

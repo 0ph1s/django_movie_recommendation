@@ -113,7 +113,10 @@ O *pool* vem antes da mistura para que um título excelente, mas sem relação c
 nunca entre só pela nota. Opcionalmente, o MMR (*Maximal Marginal Relevance*) diversifica a lista.
 
 **Perfil dinâmico.** É um vetor no mesmo espaço dos títulos (Rocchio com decaimento por recência):
-`perfil = média(curtidos) − 0,5 · média(não curtidos)`, com peso `0,5^(idade / 6)` por interação.
+`perfil = média(positivos) − 0,5 · média(não curtidos)`, com peso `|valor| · 0,5^(idade / 6)` por
+interação. Cada título tem um estado: favorito (valor 2), curti (1), não curti (−1), já vi e quero
+assistir (0: não entram no vetor nem na contagem de idade, só saem das recomendações). Toda
+mudança de estado fica registrada na tabela `TasteEvent`, que vai alimentar a evolução do gosto.
 Não há treino: cada clique muda o vetor e a próxima consulta já o usa. O histórico fica na sessão
 do navegador (ou no usuário autenticado), na tabela `Interaction`.
 
@@ -132,7 +135,7 @@ consulta é um produto matriz-vetor esparso de ~10–30 ms. O índice é salvo e
 | GET | `/api/recommendations/` | Recomendações para o perfil da sessão + resumo do perfil |
 | GET | `/api/similarity-matrix/?ids=1,2,3` | Bloco da matriz de cosseno (até 24 títulos) |
 | GET / DELETE | `/api/profile/` | Histórico / limpar perfil |
-| POST | `/api/profile/interactions/` | `{"title_id": 1, "signal": 1 \| -1}` |
+| POST | `/api/profile/interactions/` | `{"title_id": 1, "state": "favorite" \| "like" \| "dislike" \| "seen" \| "watchlist"}` (o formato antigo `"signal": 1 \| -1` continua aceito) |
 | DELETE | `/api/profile/interactions/<id>/` | Remove um título do perfil |
 | POST | `/api/profile/account-offer/dismiss/` | "Agora não" no cartão que oferece criar conta |
 | GET / PUT / DELETE | `/api/preferences/` | Ajustes do filtro híbrido salvos (PUT parcial; DELETE restaura o padrão) |

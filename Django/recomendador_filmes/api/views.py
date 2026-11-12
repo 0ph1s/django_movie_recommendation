@@ -11,7 +11,6 @@ import json
 import time
 from functools import wraps
 
-from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_http_methods
@@ -27,7 +26,7 @@ from recommender.engine import (
     similarity_matrix,
 )
 from recommender import preferences
-from recommender.models import Interaction, owner_key
+from recommender.models import STATE_OF_LEGACY_SIGNAL, Interaction, clear_states, owner_key, set_state
 from recommender.profile import Signal
 
 from . import serializers
@@ -205,34 +204,54 @@ def _profile_payload(request, historico=None):
 
 @require_http_methods(['GET', 'DELETE'])
 def profile(request):
-    if request.method == 'DELETE':
-        Interaction.objects.filter(owner=owner_key(request)).delete()
+    if request.method == 'DELETE' and owner_key(request):
+        clear_states(owner_key(request))
     return JsonResponse(_profile_payload(request))
+
+
+ESTADOS = ', '.join(Interaction.State.values)
+
+
+def _state_from(dados):
+    """Estado pedido: {"state": "..."} ou, no formato antigo, {"signal": 1 | -1}. Padrão: curti."""
+    if 'state' in dados:
+        if dados['state'] not in Interaction.State.values:
+            raise ValueError(f'O estado deve ser um destes: {ESTADOS}.')
+        return dados['state']
+    if 'signal' in dados:
+        try:
+            return STATE_OF_LEGACY_SIGNAL[int(dados['signal'])]
+        except (KeyError, TypeError, ValueError):
+            raise ValueError('O sinal deve ser 1 (curti) ou -1 (não curti).') from None
+    return Interaction.State.LIKE
 
 
 @require_http_methods(['POST'])
 def add_interaction(request):
-    """Corpo JSON: {"title_id": 123, "signal": 1 | -1}. Reavaliar move o título para o fim."""
+    """Corpo JSON: {"title_id": 123, "state": "favorite" | "like" | "dislike" | "seen" | "watchlist"}.
+
+    O formato antigo {"title_id": 123, "signal": 1 | -1} continua aceito. Reavaliar move o
+    título para o fim (mais recente) e só gera evento se o estado mudar.
+    """
     try:
         dados = json.loads(request.body or b'{}')
         title_id = int(dados['title_id'])
-        sinal = int(dados.get('signal', Interaction.Signal.LIKE))
-    except (ValueError, KeyError, TypeError):
-        return _erro('Envie {"title_id": <id>, "signal": 1 ou -1}.')
-    if sinal not in Interaction.Signal.values:
-        return _erro('O sinal deve ser 1 (curti) ou -1 (não curti).')
+    except (KeyError, TypeError, ValueError):  # ValueError cobre o JSON inválido
+        return _erro(f'Envie {{"title_id": <id>, "state": um destes: {ESTADOS}}}.')
+    try:
+        estado = _state_from(dados)
+    except ValueError as erro:
+        return _erro(str(erro))
 
     titulo = get_object_or_404(Title, pk=title_id)
-    with transaction.atomic():
-        Interaction.objects.update_or_create(
-            owner=owner_key(request, create=True), title=titulo, defaults={'signal': sinal},
-        )
+    set_state(owner_key(request, create=True), titulo, estado)
     return JsonResponse(_profile_payload(request), status=201)
 
 
 @require_http_methods(['DELETE'])
 def remove_interaction(request, title_id):
-    Interaction.objects.filter(owner=owner_key(request), title_id=title_id).delete()
+    if owner_key(request):
+        clear_states(owner_key(request), [title_id])
     return JsonResponse(_profile_payload(request))
 
 
@@ -268,7 +287,7 @@ def recommendations(request):
     """Recomendações para o histórico da sessão, com o resumo do perfil calculado."""
     params = _hybrid_params(request)
     historico = _history(request)
-    sinais = [Signal(i.title_id, i.signal) for i in historico]
+    sinais = [Signal(i.title_id, i.weight) for i in historico]
 
     inicio = time.perf_counter()
     indice = get_index()

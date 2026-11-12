@@ -325,3 +325,82 @@ html.is-loading .loader {
 }
 .field-input:focus { border-color: var(--color-cyan); outline: none; }
 .field-input[aria-invalid="true"] { border-color: var(--color-amber); }
+
+@layer components {
+  /* Botões redondos de estado (★ favorito, 🔖 quero assistir, ⋯ mais). Sobre o pôster, em
+     vidro escuro; pressionados, em ciano. */
+  .icon-btn {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 999px;
+    border: 1px solid rgb(216 222 232 / 0.18);
+    background: rgb(10 19 34 / 0.72);
+    color: var(--color-silver);
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s, opacity 0.2s;
+  }
+  .icon-btn:hover { border-color: rgb(216 222 232 / 0.55); }
+  .icon-btn svg { width: 14px; height: 14px; }
+  .icon-btn .icon-fill { fill: none; }
+  .icon-btn[aria-pressed="true"],
+  .more[data-on] > .icon-btn {
+    border-color: var(--color-cyan);
+    background: var(--color-cyan);
+    color: var(--color-night);
+  }
+  .icon-btn[aria-pressed="true"] .icon-fill { fill: currentColor; }
+
+  .more { position: relative; }
+  .more > summary { list-style: none; }
+  .more > summary::-webkit-details-marker { display: none; }
+  .more__menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 30;
+    min-width: 11rem;
+    padding: 0.25rem 0;
+    border: 1px solid var(--color-rule);
+    border-radius: 3px;
+    background: rgb(10 19 34 / 0.96);
+    box-shadow: 0 10px 30px rgb(10 19 34 / 0.6);
+    backdrop-filter: blur(12px);
+  }
+  .more__menu button {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.75rem;
+    text-align: left;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    color: var(--color-silver);
+  }
+  .more__menu button:hover { background: var(--color-deep); }
+  .more__menu button::before {
+    content: "";
+    width: 0.6rem;
+    color: var(--color-cyan);
+  }
+  .more__menu button[aria-pressed="true"]::before { content: "✓"; }
+
+  .chip__icon svg { width: 10px; height: 10px; }
+  .chip__icon .icon-fill { fill: currentColor; }
+
+  /* No catálogo, em telas com mouse, os botões sobre o pôster só aparecem no hover ou no
+     foco, a menos que já estejam marcados. No toque, ficam sempre visíveis. */
+  @media (hover: hover) {
+    /* :where() zera a especificidade, para a regra de revelar abaixo sempre vencer. */
+    .poster-actions > :where(.icon-btn[aria-pressed="false"], .more:not([open]):not([data-on])) {
+      opacity: 0;
+    }
+    .catalog-item:hover .poster-actions > *,
+    .poster-actions:focus-within > * {
+      opacity: 1;
+    }
+  }
+}
