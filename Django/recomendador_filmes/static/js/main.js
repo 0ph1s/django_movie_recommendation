@@ -17,6 +17,10 @@ const PAGES = {
   home: () => import('./pages/home.js'),
   playground: () => import('./pages/playground.js'),
   'not-found': () => import('./pages/not-found.js'),
+  auth: () => import('./pages/auth.js'),
+  settings: () => import('./pages/auth.js'),
+  profile: () => import('./pages/profile.js'),
+  welcome: () => import('./pages/welcome.js'),
 };
 
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

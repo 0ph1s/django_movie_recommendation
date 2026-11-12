@@ -7,4 +7,6 @@ app_name = 'web'
 urlpatterns = [
     path('', views.home, name='home'),
     path('playground/', views.playground, name='playground'),
+    path('perfil/', views.profile, name='profile'),
+    path('bem-vindo/', views.welcome, name='welcome'),
 ]

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mx-auto grid max-w-[1600px] gap-12 px-4 pb-24 pt-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] lg:items-end lg:gap-20 lg:pt-16">
+  <div>
+    <h1 class="display text-[clamp(3.5rem,9vw,8.5rem)] font-black" data-reveal>{% block heading %}{% endblock %}</h1>
+    <p class="mt-6 max-w-xl text-lg leading-relaxed text-silver/80">{% block lead %}{% endblock %}</p>
+  </div>
+
+  <div class="rounded-sm border border-rule bg-night/80 px-6 py-8 backdrop-blur-md sm:px-8">
+    {% block form %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

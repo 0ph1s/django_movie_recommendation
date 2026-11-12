@@ -132,6 +132,8 @@ uniform vec3 uCyanInk;
 uniform vec3 uAmberInk;
 uniform vec3 uNight;
 
+const float INK_STRENGTH = 0.5;  // opacidade dos caracteres do campo
+
 // Cobertura do glifo de densidade "tom" (0–1) no ponto "local" da célula.
 float glifo(float tom, vec2 local) {
   float indice = floor(clamp(tom, 0.0, 1.0) * (uGlyphCount - 0.001));
@@ -173,7 +175,9 @@ void main() {
   // puxando os tons médios para glifos mais densos.
   float tom = pow(clamp(max(prata, max(ciano, ambar)), 0.0, 1.0), 0.75);
   vec3 tinta = ambar >= max(prata, ciano) ? uAmberInk : (ciano >= prata ? uCyanInk : uSilverInk);
-  over(cor, alfa, tinta, glifo(tom, local));
+  // Os caracteres do campo ficam a 50% sobre o fundo noturno: mais escuros, o texto da
+  // página se destaca. A cortina, desenhada antes, continua opaca.
+  over(cor, alfa, tinta, glifo(tom, local) * INK_STRENGTH);
 
   gl_FragColor = vec4(cor, alfa);
 }

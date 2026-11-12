@@ -10,6 +10,7 @@ handler404 = 'web.views.page_not_found'
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
+    path('', include('accounts.urls')),
     path('', include('web.urls')),
 ]
 

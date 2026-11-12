@@ -39,6 +39,7 @@ class Command(BaseCommand):
         parser.add_argument('--limit', type=int, help='Importa no máximo N títulos por arquivo, os mais populares primeiro.')
         parser.add_argument('--truncate', action='store_true', help='Apaga o catálogo inteiro antes de importar.')
         parser.add_argument('--no-index', action='store_true', help='Não reconstrói o índice de recomendação ao final.')
+        parser.add_argument('--no-map', action='store_true', help='Reconstrói o índice, mas não projeta o mapa do gosto.')
 
     def handle(self, *args, **options):
         fontes = self._resolve_sources(options)
@@ -60,12 +61,15 @@ class Command(BaseCommand):
         if not options['no_index']:
             # Import tardio: o app recommender depende do catálogo, não o contrário.
             from recommender.engine import rebuild_index
+            from recommender.management.commands.build_index import run_map
 
             inicio = time.perf_counter()
             indice = rebuild_index()
             self.stdout.write(self.style.SUCCESS(
                 f'Índice: {indice.size} títulos x {indice.dimensions} dimensões em {time.perf_counter() - inicio:.1f}s'
             ))
+            if not options['no_map']:
+                run_map(self, indice)
 
     def _resolve_sources(self, options):
         explicitos = any(options[k] for k in DEFAULT_FILES)

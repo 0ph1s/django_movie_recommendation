@@ -51,7 +51,8 @@ def recommendation(rec, titulo):
 
 def interaction(item):
     return {
-        'signal': item.signal,
+        'state': item.state,
+        'signal': item.legacy_signal,  # formato antigo: 1, -1 ou 0 (já vi / quero assistir)
         'updated_at': item.updated_at.isoformat(),
         'title': title_card(item.title),
     }

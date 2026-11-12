@@ -1,0 +1,18 @@
+<div>
+  <label for="{{ field.id_for_label }}" class="text-xs text-dim">{{ field.label }}</label>
+  {% if field.field.widget.input_type == 'password' %}
+    <div class="relative" data-password>
+      {{ field }}
+      <button type="button" class="absolute bottom-2 right-0 hidden text-xs text-dim underline-offset-4 hover:text-silver hover:underline" data-password-toggle aria-pressed="false">Mostrar</button>
+    </div>
+  {% else %}
+    {{ field }}
+  {% endif %}
+  {% if field.errors %}
+    <ul class="mt-2 space-y-1 text-xs text-amber" id="{{ field.auto_id }}_error">
+      {% for erro in field.errors %}<li>{{ erro }}</li>{% endfor %}
+    </ul>
+  {% elif field.help_text %}
+    <p class="mt-2 text-xs text-dim" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</p>
+  {% endif %}
+</div>

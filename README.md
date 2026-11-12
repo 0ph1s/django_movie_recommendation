@@ -113,7 +113,10 @@ O *pool* vem antes da mistura para que um título excelente, mas sem relação c
 nunca entre só pela nota. Opcionalmente, o MMR (*Maximal Marginal Relevance*) diversifica a lista.
 
 **Perfil dinâmico.** É um vetor no mesmo espaço dos títulos (Rocchio com decaimento por recência):
-`perfil = média(curtidos) − 0,5 · média(não curtidos)`, com peso `0,5^(idade / 6)` por interação.
+`perfil = média(positivos) − 0,5 · média(não curtidos)`, com peso `|valor| · 0,5^(idade / 6)` por
+interação. Cada título tem um estado: favorito (valor 2), curti (1), não curti (−1), já vi e quero
+assistir (0: não entram no vetor nem na contagem de idade, só saem das recomendações). Toda
+mudança de estado fica registrada na tabela `TasteEvent`, que vai alimentar a evolução do gosto.
 Não há treino: cada clique muda o vetor e a próxima consulta já o usa. O histórico fica na sessão
 do navegador (ou no usuário autenticado), na tabela `Interaction`.
 
@@ -132,12 +135,94 @@ consulta é um produto matriz-vetor esparso de ~10–30 ms. O índice é salvo e
 | GET | `/api/recommendations/` | Recomendações para o perfil da sessão + resumo do perfil |
 | GET | `/api/similarity-matrix/?ids=1,2,3` | Bloco da matriz de cosseno (até 24 títulos) |
 | GET / DELETE | `/api/profile/` | Histórico / limpar perfil |
-| POST | `/api/profile/interactions/` | `{"title_id": 1, "signal": 1 \| -1}` |
+| POST | `/api/profile/interactions/` | `{"title_id": 1, "state": "favorite" \| "like" \| "dislike" \| "seen" \| "watchlist"}` (o formato antigo `"signal": 1 \| -1` continua aceito) |
 | DELETE | `/api/profile/interactions/<id>/` | Remove um título do perfil |
+| GET | `/api/profile/insights/?exclude=1,2` | Tudo o que a página de perfil mostra; `exclude` recalcula sem esses títulos (modo "e se") |
+| GET | `/api/map/points/` | Todos os títulos com posição no mapa, em colunas compactas (com ETag) |
+| GET | `/api/profile/avatar.svg` | Avatar ASCII gerado do DNA do perfil (com ETag) |
+| GET | `/api/cron/purge-anonymous/` | Limpeza diária dos dados anônimos (só com `Authorization: Bearer $CRON_SECRET`) |
+| POST | `/api/profile/account-offer/dismiss/` | "Agora não" no cartão que oferece criar conta |
+| GET / PUT / DELETE | `/api/preferences/` | Ajustes do filtro híbrido salvos (PUT parcial; DELETE restaura o padrão) |
 
 Parâmetros do filtro híbrido (todos opcionais): `k`, `alpha`, `rating_weight`, `obscurity`,
 `diversity`, `kinds`. Cada resultado traz `score`, `similarity`, `relevance`, `quality`,
 `contributions` (parcela do cosseno por bloco) e `reasons` (tokens em comum).
+
+## Página de perfil
+
+`/perfil/` funciona com conta e sem conta (o perfil da sessão). Rolagem narrativa com um menu
+fixo de seções, cada uma bloqueada até ter dados suficientes (limiares em `recommender/config.py`):
+
+- **Números:** avaliações, divisão por tipo, década favorita e horas assistidas (≈, pela duração
+  de cada título; animes do MyAnimeList ainda não têm duração no catálogo e ficam de fora).
+- **Avatar:** grade 12 × 12 de caracteres ASCII desenhada a partir do DNA (`recommender/avatar.py`);
+  muda quando o gosto muda. A versão em SVG aparece no cabeçalho.
+- **DNA:** termos com mais peso no vetor, por grupo, e a parcela de cada bloco.
+- **Gêneros:** radar da afinidade por gênero contra a parcela do gênero no catálogo.
+- **Mapa do gosto:** o catálogo inteiro em 2D (canvas), com os seus títulos destacados e uma
+  mira no centro do perfil. Zoom, arrasto, filtro por tipo e um painel para avaliar o título
+  clicado; o centro se move na hora (e no modo "e se").
+- **Títulos que te definem:** os positivos que mais puxam o vetor (peso do estado × recência ×
+  cosseno com o perfil). Cada um tem um interruptor que o tira do cálculo sem gravar nada.
+- **Conforto × exploração:** ecletismo (entropia de gêneros e tipos), dispersão no espaço e
+  pontos cegos (gêneros, tipos e décadas bem avaliados sem nenhum título seu), cada um com uma
+  porta de entrada.
+- **Quero assistir:** a watchlist com o % de match de cada título.
+
+**O mapa é calculado localmente.** TruncatedSVD (50 dimensões) e t-SNE (`recommender/projection.py`)
+levam cerca de 45 s para 5 mil títulos, então rodam só em `build_index` e `import_dataset` (ambos
+aceitam `--no-map`) e gravam `Title.map_x/map_y`. O Vercel apenas lê as coordenadas. Para o banco
+de produção, rode o comando localmente apontando para ele:
+
+```powershell
+$env:DATABASE_URL = "postgres://..."   # a do Neon
+python manage.py build_index
+```
+
+Sem coordenadas no banco, a seção do mapa simplesmente não aparece.
+
+Quem cria conta sem histórico passa por `/bem-vindo/`: 24 títulos populares e variados para
+marcar pelo menos 5.
+
+## Contas
+
+Cadastro em `/criar-conta/` (e-mail + senha; o username público é gerado, como
+`cinefilo_4821`), login em `/entrar/` e saída por POST em `/sair/`. O usuário é
+`accounts.User`, que entra pelo e-mail.
+
+- **Anônimo continua de primeira classe.** Ao criar conta ou entrar, o histórico da sessão é
+  somado ao da conta (se o mesmo título estiver nos dois, vale a avaliação mais recente) e as
+  preferências da sessão passam para a conta nova. Uma conta que já tinha preferências mantém
+  as suas.
+- **Preferências:** os controles do playground são salvos sozinhos, na sessão ou na conta.
+- **Força bruta:** com o [django-axes](https://github.com/jazzband/django-axes), 5 senhas erradas
+  para o mesmo e-mail, a partir do mesmo IP, bloqueiam novas tentativas por 15 minutos.
+- **Configurações** (`/configuracoes/`): troca do nome público e da senha, download de todos os
+  dados em JSON (conta sem a senha, ajustes, avaliações e histórico de eventos) e exclusão da conta,
+  confirmada com a senha, que apaga na hora tudo o que pertence a ela.
+- **Limpeza dos anônimos:** `python manage.py purge_anonymous` apaga as sessões expiradas e o
+  histórico de gosto que ficou sem sessão. No Vercel, o cron de `vercel.json` chama
+  `/api/cron/purge-anonymous/` uma vez por dia (07:00 UTC) com `Authorization: Bearer $CRON_SECRET`.
+  Defina `CRON_SECRET` nas variáveis do projeto; sem ela, a rota recusa qualquer chamada.
+- **Ainda não há** recuperação de senha nem verificação de e-mail (exigem um serviço de envio).
+
+**Banco criado antes das contas.** Trocar o modelo de usuário num banco já migrado não tem
+migração possível (o `migrate` para com `InconsistentMigrationHistory`). O comando abaixo
+recria só as tabelas de usuários, permissões e admin e migra só esses apps; catálogo,
+interações e sessões ficam intactos (visitantes anônimos mantêm os seus perfis). Os usuários
+existentes são perdidos (ele recusa seguir se houver usuários comuns, a menos que receba `--force`):
+
+```powershell
+python manage.py recreate_auth_tables     # pede confirmação; --yes para não perguntar
+python manage.py createsuperuser
+python manage.py migrate                  # o resto, com o código novo já no ar
+```
+
+As migrações aditivas (`catalog 0002`, `recommender 0002`) convivem com o código antigo. A
+`recommender 0003` remove a coluna `signal`, que o código antigo lê: rode-a logo depois do
+deploy do código novo.
+
+Requisitos completos desta fase em [`docs/requisitos-conta-perfil.md`](docs/requisitos-conta-perfil.md).
 
 ## Front-end
 
@@ -176,12 +261,14 @@ cd Django\recomendador_filmes
 python manage.py test
 ```
 
-Cobrem importadores, gravação, comando de importação, features, filtro híbrido, MMR, perfil e a API.
+Cobrem importadores, gravação, comando de importação, features, filtro híbrido, MMR, perfil, a API
+e as contas (cadastro, login, bloqueio, mescla do histórico e preferências).
 
 ## Estrutura
 
 ```
 Django/recomendador_filmes/
+├── accounts/                # usuário (login por e-mail), cadastro, login, axes
 ├── catalog/                 # modelos Title/Genre, importadores e `import_dataset`
 │   └── importers/           # base.py (limpeza), tmdb.py, myanimelist.py, loader.py (upsert)
 ├── recommender/             # o motor
@@ -190,7 +277,11 @@ Django/recomendador_filmes/
 │   ├── quality.py           # nota bayesiana e percentis
 │   ├── profile.py           # perfil dinâmico (Rocchio + recência)
 │   ├── engine.py            # índice, cache, filtro híbrido, MMR, explicações
-│   └── models.py            # Interaction
+│   ├── preferences.py       # preferências do filtro (sessão ou conta)
+│   ├── insights.py          # números, radar, títulos que te definem, conforto, watchlist
+│   ├── avatar.py            # avatar ASCII gerado do DNA
+│   ├── projection.py        # mapa do gosto: SVD + t-SNE
+│   └── models.py            # Interaction, mescla de histórico, UserPreferences
 ├── api/                     # endpoints JSON
 ├── web/                     # páginas (home, playground)
 ├── templates/               # base.html, web/

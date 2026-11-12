@@ -14,8 +14,14 @@ export function initMagnetic(raiz = document, { reduced = false } = {}) {
     const moveY = gsap.quickTo(el, 'y', { duration: 0.5, ease: 'power3.out' });
     const labelX = label && gsap.quickTo(label, 'x', { duration: 0.6, ease: 'power3.out' });
     const labelY = label && gsap.quickTo(label, 'y', { duration: 0.6, ease: 'power3.out' });
+    const seguidores = [moveX, moveY, labelX, labelY].filter(Boolean);
+    let volta = null;
 
     el.addEventListener('pointermove', (e) => {
+      // Se o cursor volta antes do fim da volta elástica, ela é cancelada: continuando,
+      // terminaria em 0 por cima do ímã e o botão pareceria travado.
+      volta?.kill();
+      volta = null;
       const r = el.getBoundingClientRect();
       const dx = e.clientX - (r.left + r.width / 2);
       const dy = e.clientY - (r.top + r.height / 2);
@@ -25,8 +31,10 @@ export function initMagnetic(raiz = document, { reduced = false } = {}) {
       labelY?.(dy * forca * 0.45);
     });
     el.addEventListener('pointerleave', () => {
-      gsap.to(el, { x: 0, y: 0, duration: 0.9, ease: 'elastic.out(1, 0.4)', overwrite: 'auto' });
-      if (label) gsap.to(label, { x: 0, y: 0, duration: 0.9, ease: 'elastic.out(1, 0.4)', overwrite: 'auto' });
+      // Pausa os tweens do ímã (o próximo pointermove os retoma) em vez de matá-los com
+      // overwrite, para que continuem funcionando nas próximas passadas.
+      seguidores.forEach((seguir) => seguir.tween.pause());
+      volta = gsap.to(label ? [el, label] : el, { x: 0, y: 0, duration: 0.9, ease: 'elastic.out(1, 0.4)' });
     });
   });
 }

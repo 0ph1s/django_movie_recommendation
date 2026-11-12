@@ -92,8 +92,7 @@ function methodSteps(field, reduced) {
 
   const ativar = (passo) => {
     const ativos = new Set(passo.dataset.terms.split(' '));
-    // Esmaece o conteúdo, não o <li>: o véu de leitura (.legible) continua opaco.
-    passos.forEach((p) => gsap.to(p.children, { opacity: p === passo ? 1 : 0.35, duration: duracao }));
+    passos.forEach((p) => gsap.to(p, { opacity: p === passo ? 1 : 0.35, duration: duracao }));
     termos.forEach((t) => gsap.to(t, { opacity: ativos.has(t.dataset.term) ? 1 : 0.4, duration: duracao }));
 
     const tintas = STEP_INKS[passo.dataset.step];
@@ -106,14 +105,38 @@ function methodSteps(field, reduced) {
     }
   };
 
-  gsap.set(passos.flatMap((p) => [...p.children]), { opacity: 0.35 });
-  passos.forEach((passo) => {
-    ScrollTrigger.create({
-      trigger: passo,
-      start: 'top 62%',
-      end: 'bottom 38%',
-      onToggle: (self) => self.isActive && ativar(passo),
+  gsap.set(passos, { opacity: 0.35 });
+  const mm = gsap.matchMedia();
+  mm.add('(min-width: 768px)', () => {
+    passos.forEach((passo) => {
+      ScrollTrigger.create({
+        trigger: passo,
+        start: 'top 62%',
+        end: 'bottom 38%',
+        onToggle: (self) => self.isActive && ativar(passo),
+      });
     });
+  });
+  // No celular os passos viram um carrossel horizontal: o destaque é o cartão mais centralizado.
+  mm.add('(max-width: 767px)', () => {
+    const lista = document.querySelector('[data-steps]');
+    let atual = null;
+    const escolher = () => {
+      const meio = lista.getBoundingClientRect().left + lista.clientWidth / 2;
+      const distancia = (p) => {
+        const r = p.getBoundingClientRect();
+        return Math.abs(r.left + r.width / 2 - meio);
+      };
+      const passo = passos.reduce((melhor, p) => (distancia(p) < distancia(melhor) ? p : melhor));
+      if (passo !== atual) {
+        atual = passo;
+        ativar(passo);
+      }
+    };
+    // O primeiro destaque espera a seção aparecer, para não mudar as tintas do hero.
+    ScrollTrigger.create({ trigger: lista, start: 'top 75%', once: true, onEnter: escolher });
+    lista.addEventListener('scroll', escolher, { passive: true });
+    return () => lista.removeEventListener('scroll', escolher);
   });
 
   // Dentro da seção, o campo se concentra atrás da fórmula (à esquerda) e libera a
