@@ -47,9 +47,11 @@ continua de primeira classe: a conta é uma melhoria opcional.
 - O username é gerado no cadastro (ex.: `cinefilo_4821`, com nova tentativa em caso de colisão)
   e editável em Configurações (RF-32).
 - *Operação:* o banco do Neon já tem as tabelas do `auth`/`admin` migradas com o usuário padrão.
-  No deploy desta fatia, as tabelas `auth_*`, `admin_*`, `django_session` (e as do axes, se
-  existirem) são recriadas e o superusuário é criado de novo. Catálogo e `Interaction` ficam
-  intactos. Executar só com autorização, depois de confirmar que só existe o superusuário.
+  No deploy desta fatia, as tabelas `auth_*` e `django_admin_log` (e as do axes, se
+  existirem) são recriadas e o superusuário é criado de novo. Catálogo, `Interaction` e
+  `django_session` ficam intactos: os visitantes anônimos mantêm os seus perfis. Executar só
+  com autorização, depois de confirmar que só existe o superusuário.
+  *Feito no Neon em 12/11/2026* (não havia nenhum usuário; 6 sessões ativas preservadas).
 
 **RF-02 — Cadastro** em `/criar-conta/`: e-mail + senha, com os `AUTH_PASSWORD_VALIDATORS`
 atuais, sem verificação de e-mail. A pessoa sai do cadastro já autenticada.

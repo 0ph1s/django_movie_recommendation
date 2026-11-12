@@ -208,14 +208,19 @@ Cadastro em `/criar-conta/` (e-mail + senha; o username público é gerado, como
 
 **Banco criado antes das contas.** Trocar o modelo de usuário num banco já migrado não tem
 migração possível (o `migrate` para com `InconsistentMigrationHistory`). O comando abaixo
-recria só as tabelas de usuários, permissões, admin e sessões; catálogo e interações ficam
-intactos. Os usuários existentes são perdidos (ele recusa seguir se houver usuários comuns, a
-menos que receba `--force`):
+recria só as tabelas de usuários, permissões e admin e migra só esses apps; catálogo,
+interações e sessões ficam intactos (visitantes anônimos mantêm os seus perfis). Os usuários
+existentes são perdidos (ele recusa seguir se houver usuários comuns, a menos que receba `--force`):
 
 ```powershell
 python manage.py recreate_auth_tables     # pede confirmação; --yes para não perguntar
 python manage.py createsuperuser
+python manage.py migrate                  # o resto, com o código novo já no ar
 ```
+
+As migrações aditivas (`catalog 0002`, `recommender 0002`) convivem com o código antigo. A
+`recommender 0003` remove a coluna `signal`, que o código antigo lê: rode-a logo depois do
+deploy do código novo.
 
 Requisitos completos desta fase em [`docs/requisitos-conta-perfil.md`](docs/requisitos-conta-perfil.md).
 
