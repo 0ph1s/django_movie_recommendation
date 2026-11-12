@@ -44,6 +44,7 @@ def _enter(request, user, conta_nova):
             f'{somados} títulos da sessão foram somados ao seu perfil.' if somados > 1
             else '1 título da sessão foi somado ao seu perfil.',
         )
+    return somados
 
 
 def _auth_page(request, template, form):
@@ -59,9 +60,10 @@ def signup(request):
     form = SignupForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         user = form.save()
-        _enter(request, user, conta_nova=True)
+        somados = _enter(request, user, conta_nova=True)
         messages.success(request, f'Conta criada. Seu nome público é {user.username}; dá para trocar depois.')
-        return redirect(_next_url(request))
+        # Quem chega sem histórico faz a primeira avaliação; quem trouxe a sessão já vê o perfil.
+        return redirect('web:profile' if somados else 'web:welcome')
     return _auth_page(request, 'accounts/criar_conta.html', form)
 
 

@@ -137,12 +137,35 @@ consulta é um produto matriz-vetor esparso de ~10–30 ms. O índice é salvo e
 | GET / DELETE | `/api/profile/` | Histórico / limpar perfil |
 | POST | `/api/profile/interactions/` | `{"title_id": 1, "state": "favorite" \| "like" \| "dislike" \| "seen" \| "watchlist"}` (o formato antigo `"signal": 1 \| -1` continua aceito) |
 | DELETE | `/api/profile/interactions/<id>/` | Remove um título do perfil |
+| GET | `/api/profile/insights/?exclude=1,2` | Tudo o que a página de perfil mostra; `exclude` recalcula sem esses títulos (modo "e se") |
+| GET | `/api/profile/avatar.svg` | Avatar ASCII gerado do DNA do perfil (com ETag) |
 | POST | `/api/profile/account-offer/dismiss/` | "Agora não" no cartão que oferece criar conta |
 | GET / PUT / DELETE | `/api/preferences/` | Ajustes do filtro híbrido salvos (PUT parcial; DELETE restaura o padrão) |
 
 Parâmetros do filtro híbrido (todos opcionais): `k`, `alpha`, `rating_weight`, `obscurity`,
 `diversity`, `kinds`. Cada resultado traz `score`, `similarity`, `relevance`, `quality`,
 `contributions` (parcela do cosseno por bloco) e `reasons` (tokens em comum).
+
+## Página de perfil
+
+`/perfil/` funciona com conta e sem conta (o perfil da sessão). Rolagem narrativa com um menu
+fixo de seções, cada uma bloqueada até ter dados suficientes (limiares em `recommender/config.py`):
+
+- **Números:** avaliações, divisão por tipo, década favorita e horas assistidas (≈, pela duração
+  de cada título; animes do MyAnimeList ainda não têm duração no catálogo e ficam de fora).
+- **Avatar:** grade 12 × 12 de caracteres ASCII desenhada a partir do DNA (`recommender/avatar.py`);
+  muda quando o gosto muda. A versão em SVG aparece no cabeçalho.
+- **DNA:** termos com mais peso no vetor, por grupo, e a parcela de cada bloco.
+- **Gêneros:** radar da afinidade por gênero contra a parcela do gênero no catálogo.
+- **Títulos que te definem:** os positivos que mais puxam o vetor (peso do estado × recência ×
+  cosseno com o perfil). Cada um tem um interruptor que o tira do cálculo sem gravar nada.
+- **Conforto × exploração:** ecletismo (entropia de gêneros e tipos), dispersão no espaço e
+  pontos cegos (gêneros, tipos e décadas bem avaliados sem nenhum título seu), cada um com uma
+  porta de entrada.
+- **Quero assistir:** a watchlist com o % de match de cada título.
+
+Quem cria conta sem histórico passa por `/bem-vindo/`: 24 títulos populares e variados para
+marcar pelo menos 5.
 
 ## Contas
 
@@ -226,6 +249,8 @@ Django/recomendador_filmes/
 │   ├── profile.py           # perfil dinâmico (Rocchio + recência)
 │   ├── engine.py            # índice, cache, filtro híbrido, MMR, explicações
 │   ├── preferences.py       # preferências do filtro (sessão ou conta)
+│   ├── insights.py          # números, radar, títulos que te definem, conforto, watchlist
+│   ├── avatar.py            # avatar ASCII gerado do DNA
 │   └── models.py            # Interaction, mescla de histórico, UserPreferences
 ├── api/                     # endpoints JSON
 ├── web/                     # páginas (home, playground)

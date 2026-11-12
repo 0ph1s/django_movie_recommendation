@@ -31,7 +31,8 @@ class ContaTestCase(ApiTestCase):
 class CadastroTests(ContaTestCase):
     def test_cria_conta_com_username_gerado_e_ja_entra(self):
         resposta = self.criar_conta(email='Ana@Exemplo.COM')
-        self.assertRedirects(resposta, reverse('web:playground'), fetch_redirect_response=False)
+        # Sem histórico na sessão: primeira avaliação.
+        self.assertRedirects(resposta, reverse('web:welcome'), fetch_redirect_response=False)
 
         user = User.objects.get()
         self.assertEqual(user.email, 'ana@exemplo.com')
@@ -54,13 +55,19 @@ class CadastroTests(ContaTestCase):
         nomes = {User.objects.create_user(f'p{i}@exemplo.com', SENHA).username for i in range(20)}
         self.assertEqual(len(nomes), 20)
 
-    def test_next_externo_e_ignorado(self):
-        resposta = self.criar_conta(next='https://malicioso.example/roubo')
-        self.assertRedirects(resposta, reverse('web:playground'), fetch_redirect_response=False)
-
-    def test_next_interno_e_respeitado(self):
+    def test_com_historico_na_sessao_vai_direto_ao_perfil(self):
+        self.curtir('Orbit')
         resposta = self.criar_conta(next='/?origem=teste')
-        self.assertRedirects(resposta, '/?origem=teste', fetch_redirect_response=False)
+        self.assertRedirects(resposta, reverse('web:profile'), fetch_redirect_response=False)
+
+    def test_bem_vindo_exige_conta_e_mostra_titulos_variados(self):
+        self.assertEqual(self.client.get(reverse('web:welcome')).status_code, 302)
+        self.criar_conta()
+        resposta = self.client.get(reverse('web:welcome'))
+        self.assertEqual(resposta.status_code, 200)
+        tipos = {t['kind'] for t in resposta.context['titles']}
+        self.assertEqual(tipos, {'movie', 'series', 'anime'})
+        self.assertEqual(len({t['id'] for t in resposta.context['titles']}), len(resposta.context['titles']))
 
 
 class LoginTests(ContaTestCase):

@@ -7,6 +7,7 @@ import { initMagnetic } from '../fx/magnetic.js';
 import { scrollToElement } from '../fx/smooth-scroll.js';
 import { initTilt } from '../fx/tilt.js';
 import { api, isAbort } from '../lib/api.js';
+import { refreshHeaderAvatar } from '../lib/avatar.js';
 import { debounce, esc, fmt, KIND_LABEL, KIND_PLURAL } from '../lib/format.js';
 import { posterCaption, posterHTML } from '../lib/poster.js';
 
@@ -89,6 +90,7 @@ class Playground {
     };
     this.refreshSoon = debounce(() => this.refresh(), 140);
     this.savePrefsSoon = debounce(() => this.savePrefs(), 600);
+    this.refreshAvatarSoon = debounce(refreshHeaderAvatar, 800);
   }
 
   async start() {
@@ -320,6 +322,7 @@ class Playground {
   applyProfile(dados) {
     this.setHistory(dados.history);
     this.renderOffer(dados.account_offer);
+    this.refreshAvatarSoon();
   }
 
   /** Cartão "Guardar meu perfil" (só existe para anônimos). */

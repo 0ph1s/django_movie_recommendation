@@ -68,19 +68,28 @@
         {% if user.is_authenticated %}
           <details class="account-menu relative" data-account-menu>
             <summary class="flex cursor-pointer list-none items-center gap-2 rounded-full border border-rule py-1 pl-1 pr-3 text-sm hover:border-silver/60" aria-label="Menu da conta de {{ user.username }}">
-              <span class="display grid size-7 place-items-center rounded-full bg-cyan text-base text-night" aria-hidden="true">{{ user.username|first|upper }}</span>
+              <img src="{% url 'api:profile-avatar' %}" alt="" width="28" height="28" class="size-7 rounded-full bg-night" data-header-avatar>
               <span class="hidden max-w-[10rem] truncate sm:inline">{{ user.username }}</span>
             </summary>
             <div class="absolute right-0 top-full z-40 mt-2 w-56 rounded-sm border border-rule bg-night/95 py-2 text-sm shadow-lg shadow-night/60 backdrop-blur-md">
               <p class="truncate px-4 pb-2 text-xs text-dim">{{ user.email }}</p>
+              <a href="{% url 'web:profile' %}" class="block px-4 py-2 hover:bg-deep" data-transition-label="Perfil">Perfil</a>
               <form method="post" action="{% url 'accounts:logout' %}">
                 {% csrf_token %}
                 <button type="submit" class="w-full px-4 py-2 text-left hover:bg-deep">Sair</button>
               </form>
             </div>
           </details>
-        {% elif page != 'auth' %}
-          <a href="{% url 'accounts:login' %}?next={{ request.get_full_path|urlencode }}" class="text-sm underline-offset-4 hover:underline" data-transition-label="Entrar">Entrar</a>
+        {% else %}
+          {% if page != 'profile' %}
+            <a href="{% url 'web:profile' %}" class="flex items-center gap-2 rounded-full border border-rule py-1 pl-1 pr-3 text-sm hover:border-silver/60" data-transition-label="Perfil">
+              <img src="{% url 'api:profile-avatar' %}" alt="" width="28" height="28" class="size-7 rounded-full bg-night" data-header-avatar>
+              <span>Perfil</span>
+            </a>
+          {% endif %}
+          {% if page != 'auth' %}
+            <a href="{% url 'accounts:login' %}?next={{ request.get_full_path|urlencode }}" class="text-sm underline-offset-4 hover:underline" data-transition-label="Entrar">Entrar</a>
+          {% endif %}
         {% endif %}
       </div>
     </nav>

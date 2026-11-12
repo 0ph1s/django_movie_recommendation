@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Bem-vindo | Ângulo{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-[1600px] px-4 pb-32 sm:px-8" data-welcome data-goal="{{ goal }}">
+  <header class="grid gap-6 pb-12 pt-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:items-end">
+    <h1 class="display text-[clamp(3.5rem,9vw,8.5rem)] font-black" data-reveal>Para começar</h1>
+    <p class="text-lg leading-relaxed text-silver/80">
+      Marque pelo menos {{ goal }} títulos que você curtiu. É o bastante para o Ângulo desenhar
+      o primeiro rascunho do seu gosto. Não reconhece nenhum? Dá para pular.
+    </p>
+  </header>
+
+  <div class="sticky top-3 z-20 -mx-2 mb-10 flex flex-col gap-4 rounded-2xl border border-silver/10 bg-night/40 px-4 py-4 backdrop-blur-xl sm:-mx-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+    <div class="flex min-w-0 flex-1 items-center gap-4">
+      <p class="whitespace-nowrap text-sm tabular-nums" aria-live="polite"><span class="text-2xl font-semibold" data-count>0</span> <span class="text-dim">de {{ goal }}</span></p>
+      <span class="inkbar max-w-xs flex-1" aria-hidden="true"><span class="inkbar__sim transition-[width] duration-500" style="width:0%" data-progress></span></span>
+    </div>
+    <div class="flex items-center gap-4">
+      <a href="{% url 'web:profile' %}" class="text-sm text-dim underline-offset-4 hover:text-silver hover:underline" data-transition-label="Perfil" data-skip>Pular</a>
+      <a href="{% url 'web:profile' %}" class="pointer-events-none rounded-full bg-silver/30 px-6 py-2.5 text-sm font-semibold text-night/70 transition-colors aria-[disabled=false]:pointer-events-auto aria-[disabled=false]:bg-cyan aria-[disabled=false]:text-night" aria-disabled="true" data-continue data-transition-label="Perfil">Ver meu perfil</a>
+    </div>
+  </div>
+
+  <ul class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6" data-welcome-grid></ul>
+</div>
+{% endblock %}
+
+{% block data %}
+  {{ titles|json_script:'welcome-data' }}
+{% endblock %}

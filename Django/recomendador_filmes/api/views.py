@@ -11,7 +11,7 @@ import json
 import time
 from functools import wraps
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -26,6 +26,8 @@ from recommender.engine import (
     similarity_matrix,
 )
 from recommender import preferences
+from recommender.avatar import avatar_etag, avatar_grid, avatar_svg
+from recommender.insights import build_insights, profile_summary
 from recommender.models import STATE_OF_LEGACY_SIGNAL, Interaction, clear_states, owner_key, set_state
 from recommender.profile import Signal
 
@@ -33,6 +35,7 @@ from . import serializers
 
 MAX_PAGE = 60
 MAX_MATRIX = 24
+MAX_EXCLUDE = 50
 
 # Cartão "Guardar meu perfil" no playground: aparece com 5 títulos marcados e, se dispensado
 # antes de 15, volta uma única vez ao chegar a 15.
@@ -260,6 +263,59 @@ def dismiss_account_offer(request):
     """“Agora não” no cartão de oferta de conta: guarda quantos títulos havia ao dispensar."""
     request.session[OFFER_SESSION_KEY] = len(_history(request))
     return JsonResponse({'account_offer': False})
+
+
+# ---------------------------------------------------------------- página de perfil
+
+def insights_payload(request, exclude=()):
+    """Insights do perfil com os títulos já serializados (usado pela API e pela página /perfil/)."""
+    historico = _history(request)
+    dados = build_insights(get_index(), historico, exclude)
+
+    titulos = {i.title_id: i.title for i in historico}
+    pontos_cegos = (dados['comfort'] or {}).get('blind_spots', [])
+    faltam = {b['suggestion_id'] for b in pontos_cegos} - set(titulos)
+    titulos.update(Title.objects.for_listing().in_bulk(faltam))
+
+    for item in [*(dados['defining'] or []), *dados['watchlist']]:
+        item['title'] = serializers.title_card(titulos[item['title_id']])
+    for ponto in pontos_cegos:
+        ponto['suggestion'] = serializers.title_card(titulos[ponto['suggestion_id']])
+    if dados['whatif']:
+        dados['whatif']['titles'] = [titulos[t].title for t in dados['whatif']['title_ids']]
+    return dados
+
+
+@require_GET
+@catalog_required
+def profile_insights(request):
+    """Tudo o que a página de perfil mostra. ?exclude=1,2 recalcula sem esses títulos (modo "e se")."""
+    try:
+        excluir = [int(i) for i in request.GET.get('exclude', '').split(',') if i][:MAX_EXCLUDE]
+    except ValueError:
+        return _erro('Use exclude=1,2,3 com números inteiros.')
+    return JsonResponse(insights_payload(request, excluir))
+
+
+@require_GET
+def profile_avatar(request):
+    """Avatar ASCII em SVG, gerado do DNA do perfil. Com ETag: muda quando o gosto muda."""
+    historico = _history(request)
+    resumo = None
+    if any(i.weight > 0 for i in historico):
+        try:
+            resumo = profile_summary(get_index(), historico)
+        except EmptyCatalog:
+            resumo = None
+    grade = avatar_grid(resumo)
+    etag = f'"{avatar_etag(grade)}"'
+    if request.headers.get('If-None-Match') == etag:
+        resposta = HttpResponse(status=304)
+    else:
+        resposta = HttpResponse(avatar_svg(grade), content_type='image/svg+xml; charset=utf-8')
+    resposta['ETag'] = etag
+    resposta['Cache-Control'] = 'private, no-cache'
+    return resposta
 
 
 # ---------------------------------------------------------------- preferências

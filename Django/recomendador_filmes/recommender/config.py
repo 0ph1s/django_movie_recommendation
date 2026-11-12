@@ -36,6 +36,13 @@ class RecommenderConfig:
     favorite_weight: float = 2.0  # um favorito pesa como N "curti" no perfil
     recency_half_life: float = 6  # a cada N interações mais antigas, o peso cai pela metade
 
+    # Página de perfil: mínimo de títulos para cada seção sair do estado bloqueado.
+    # "positivos" = favoritos + curtidos; "avaliações" = tudo menos a watchlist.
+    unlock_map: int = 1            # positivos
+    unlock_dna: int = 3            # positivos (DNA, radar e títulos que te definem)
+    unlock_stats: int = 5          # avaliações
+    unlock_comfort: int = 8        # positivos (conforto × exploração)
+
     index_path: Path = Path('var/recommender_index.joblib')
     # Segundos em que o índice em memória é usado sem conferir no banco se o catálogo mudou.
     # 0 confere a cada consulta (desenvolvimento e testes).

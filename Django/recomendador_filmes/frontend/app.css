@@ -404,3 +404,88 @@ html.is-loading .loader {
     }
   }
 }
+
+@layer components {
+  /* Menu de seções (âncoras) com o mesmo vidro do seletor. */
+  .seg > a {
+    flex-shrink: 0;
+    padding: 0.3rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    color: var(--color-dim);
+    transition: color 0.2s, background-color 0.2s;
+  }
+  .seg > a:hover { color: var(--color-silver); }
+  .seg > a[aria-current] {
+    background: var(--color-silver);
+    color: var(--color-night);
+  }
+
+  /* Seções da página de perfil: rolagem narrativa, como a home. */
+  .profile-section {
+    scroll-margin-top: 6rem;
+    border-top: 1px solid var(--color-rule);
+    padding-block: 5rem 7rem;
+  }
+  .profile-section__head {
+    display: grid;
+    gap: 1.5rem;
+    margin-bottom: 3.5rem;
+  }
+  @media (min-width: 1024px) {
+    .profile-section__head {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      align-items: end;
+      gap: 4rem;
+    }
+  }
+
+  /* Avatar ASCII: grade 12 × 12 de células quadradas. */
+  .avatar-grid {
+    display: inline-block;
+    padding: 1.1rem;
+    border: 1px solid var(--color-rule);
+    border-radius: 4px;
+    background: rgb(10 19 34 / 0.85);
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: clamp(15px, 1.9vw, 24px);
+    font-weight: 700;
+    line-height: 1;
+    user-select: none;
+  }
+  .avatar-grid__row { display: block; white-space: pre; }
+  .avatar-grid__row > span {
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+  }
+
+  /* Interruptor (role="switch"): ligado = título no cálculo do perfil. */
+  .switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-silver);
+  }
+  .switch__track {
+    position: relative;
+    width: 1.9rem;
+    height: 1.05rem;
+    border-radius: 999px;
+    background: var(--color-rule);
+    transition: background-color 0.25s;
+  }
+  .switch__thumb {
+    position: absolute;
+    top: 0.15rem;
+    left: 0.15rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: var(--color-silver);
+    transition: transform 0.25s var(--ease-out-expo);
+  }
+  .switch[aria-checked="true"] .switch__track { background: var(--color-cyan); }
+  .switch[aria-checked="true"] .switch__thumb { transform: translateX(0.85rem); background: var(--color-night); }
+}
