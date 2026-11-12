@@ -17,7 +17,7 @@
     <div>
       <p class="text-sm text-dim">{% if user.is_authenticated %}Perfil de gosto{% else %}Perfil deste navegador{% endif %}</p>
       <h1 class="display mt-3 break-words text-[clamp(3.5rem,9vw,8.5rem)] font-black" data-reveal>{% if user.is_authenticated %}{{ user.username }}{% else %}Seu perfil{% endif %}</h1>
-      <dl class="mt-10 grid max-w-3xl grid-cols-2 gap-x-8 gap-y-6 text-center sm:grid-cols-4" data-stats></dl>
+      <dl class="mt-10 grid max-w-3xl grid-cols-2 gap-x-8 gap-y-6" data-stats></dl>
     </div>
     <figure class="justify-self-start lg:justify-self-end">
       <pre class="avatar-grid" data-avatar aria-hidden="true"></pre>
