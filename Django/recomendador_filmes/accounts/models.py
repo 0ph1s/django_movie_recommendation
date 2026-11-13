@@ -3,9 +3,12 @@ import secrets
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.core.validators import RegexValidator
 from django.db import models
+from django.templatetags.static import static
+from django.urls import reverse
 from django.utils import timezone
 
 USERNAME_PREFIX = 'cinefilo'
+DEFAULT_PHOTO = 'img/perfil-padrao.webp'
 
 username_validator = RegexValidator(
     r'^[a-z0-9_]{3,30}$',
@@ -66,6 +69,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField('ativo', default=True)
     is_staff = models.BooleanField('acesso ao admin', default=False)
     date_joined = models.DateTimeField('criado em', default=timezone.now)
+    # Versão da foto de perfil (0 = foto padrão). Fica no usuário para o cabeçalho montar a URL
+    # sem consultar a tabela das fotos, que guarda os bytes.
+    # db_default: o código anterior (sem este campo) continua criando contas enquanto o deploy troca.
+    photo_version = models.PositiveIntegerField('versão da foto', default=0, db_default=0, editable=False)
 
     objects = UserManager()
 
@@ -85,6 +92,32 @@ class User(AbstractBaseUser, PermissionsMixin):
         self.email = normalize_email(self.email)
 
     @property
+    def photo_url(self):
+        """Foto escolhida (URL versionada, para o cache) ou a foto padrão do Ângulo."""
+        if self.photo_version:
+            return f"{reverse('accounts:photo')}?v={self.photo_version}"
+        return static(DEFAULT_PHOTO)
+
+    @property
     def owner(self):
         """Dono do histórico de gosto (ver recommender.models.owner_key)."""
         return f'u:{self.pk}'
+
+
+class ProfilePhoto(models.Model):
+    """Foto de perfil enviada pelo usuário, já recortada e reprocessada (ver accounts/photos.py).
+
+    Os bytes ficam no banco: no Vercel não há disco persistente, e a imagem final é pequena
+    (WebP 384 × 384, dezenas de KB).
+    """
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True, related_name='photo')
+    image = models.BinaryField('imagem (WebP)')
+    updated_at = models.DateTimeField('atualizada em', auto_now=True)
+
+    class Meta:
+        verbose_name = 'foto de perfil'
+        verbose_name_plural = 'fotos de perfil'
+
+    def __str__(self):
+        return f'Foto de {self.user}'

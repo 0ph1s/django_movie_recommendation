@@ -1,9 +1,9 @@
-<div>
+<div data-field="{{ field.html_name }}">
   <label for="{{ field.id_for_label }}" class="text-xs text-dim">{{ field.label }}</label>
   {% if field.field.widget.input_type == 'password' %}
     <div class="relative" data-password>
       {{ field }}
-      <button type="button" class="absolute bottom-2 right-0 hidden text-xs text-dim underline-offset-4 hover:text-silver hover:underline" data-password-toggle aria-pressed="false">Mostrar</button>
+      <button type="button" class="absolute bottom-2 right-0 hidden text-xs text-dim hover:text-silver transition-colors" data-password-toggle aria-pressed="false">Mostrar</button>
     </div>
   {% else %}
     {{ field }}

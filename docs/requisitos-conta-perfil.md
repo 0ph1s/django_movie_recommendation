@@ -26,7 +26,7 @@ continua de primeira classe: a conta é uma melhoria opcional.
 - Perfil público (`/u/<username>/`), seguir pessoas, compatibilidade entre usuários. O modelo já
   nasce com `username` público para isso.
 - Evolução do gosto no tempo (visualização). Os dados começam a ser gravados na v1 (RF-13).
-- Nota de 1 a 5, upload de avatar, OAuth, link mágico, verificação de e-mail e recuperação de
+- Nota de 1 a 5, OAuth, link mágico, verificação de e-mail e recuperação de
   senha (dependem de um serviço de e-mail, ainda não contratado).
 
 ## Decisões transversais
@@ -84,11 +84,11 @@ popularidade, corte de obscuridade, diversidade e tipos.
   debounce).
 - Um botão "Restaurar padrão" volta aos valores de `config.py`.
 
-**RF-08 — Navegação.** O cabeçalho mostra sempre o link "Perfil" com o mini-avatar (RF-18),
+**RF-08 — Navegação.** O cabeçalho mostra sempre o link "Perfil" com a foto de perfil em miniatura (RF-18),
 inclusive para o anônimo.
 
 - **Anônimo:** aparece "Entrar" ao lado.
-- **Logado:** o avatar abre um menu com Perfil, Configurações e Sair.
+- **Logado:** a foto abre um menu com Perfil, Configurações e Sair.
 
 **RF-09 — Oferta de conta no playground.** Ao chegar a 5 interações, um cartão discreto aparece
 no painel "Seu perfil": "Guardar meu perfil" / "Agora não".
@@ -163,17 +163,18 @@ faixa "Este perfil vive só neste navegador. Crie uma conta para guardá-lo".
 payload, todas as seções abaixo e o estado de desbloqueio de cada uma. `exclude` recalcula sem
 gravar nada (RF-22).
 
-**RF-18 — Avatar gerado.** `GET /api/profile/avatar.svg` devolve uma grade de 12×12 caracteres
-ASCII:
+**RF-18 — Foto de perfil.** *(Revisto em 13/11/2026: o avatar gerado do gosto, primeiro em
+grade ASCII e depois como criatura vetorial, saiu por enquanto.)*
 
-- **Densidade das células:** vem dos tokens e pesos do DNA.
-- **Cor:** a tinta do gênero ou tipo dominante.
-- **Determinismo:** o mesmo perfil gera sempre o mesmo SVG, com ETag pelo hash do perfil.
-- **Uso:** funciona sem JS (cabeçalho) e servirá de og:image na fase social. O anônimo também
-  ganha o seu.
-- **No `/perfil/`:** o JS faz uma cintilação leve dos glifos e a transição quando o perfil muda.
+- **Padrão:** todo perfil começa com a foto padrão do Ângulo; o anônimo fica sempre com ela.
+- **Escolha:** em Configurações, o usuário envia JPEG, PNG ou WebP de até 4 MB, com prévia antes de
+  salvar, e pode remover para voltar à padrão.
+- **Processamento:** o servidor valida que o arquivo é mesmo uma imagem, recorta em quadrado e
+  grava um WebP 384 × 384 sem os metadados do original.
+- **Onde aparece:** no cabeçalho (mini) e na abertura do `/perfil/`, com link para trocar.
+- **LGPD:** a foto entra na exportação e é apagada com a conta.
 
-**RF-19 — Cabeçalho e estatísticas:** avatar, username, total de avaliações, divisão
+**RF-19 — Cabeçalho e estatísticas:** foto de perfil, username, total de avaliações, divisão
 filme/série/anime, década favorita e horas assistidas.
 
 - **Títulos que entram nas horas:** favorito, curti, não curti e já vi (a watchlist fica de
@@ -235,7 +236,7 @@ fixo pula entre as seções.
 
 - Anônimo e logado veem a página.
 - As seções respeitam os limiares.
-- O avatar é idêntico para perfis iguais e muda quando o perfil muda.
+- A foto enviada é reprocessada (sem metadados) e some junto com a conta.
 - O "e se" não grava nada.
 - Sem WebGL ou com `prefers-reduced-motion`, a página segue legível e estática.
 

@@ -139,7 +139,6 @@ consulta é um produto matriz-vetor esparso de ~10–30 ms. O índice é salvo e
 | DELETE | `/api/profile/interactions/<id>/` | Remove um título do perfil |
 | GET | `/api/profile/insights/?exclude=1,2` | Tudo o que a página de perfil mostra; `exclude` recalcula sem esses títulos (modo "e se") |
 | GET | `/api/map/points/` | Todos os títulos com posição no mapa, em colunas compactas (com ETag) |
-| GET | `/api/profile/avatar.svg` | Avatar ASCII gerado do DNA do perfil (com ETag) |
 | GET | `/api/cron/purge-anonymous/` | Limpeza diária dos dados anônimos (só com `Authorization: Bearer $CRON_SECRET`) |
 | POST | `/api/profile/account-offer/dismiss/` | "Agora não" no cartão que oferece criar conta |
 | GET / PUT / DELETE | `/api/preferences/` | Ajustes do filtro híbrido salvos (PUT parcial; DELETE restaura o padrão) |
@@ -155,8 +154,8 @@ fixo de seções, cada uma bloqueada até ter dados suficientes (limiares em `re
 
 - **Números:** avaliações, divisão por tipo, década favorita e horas assistidas (≈, pela duração
   de cada título; animes do MyAnimeList ainda não têm duração no catálogo e ficam de fora).
-- **Avatar:** grade 12 × 12 de caracteres ASCII desenhada a partir do DNA (`recommender/avatar.py`);
-  muda quando o gosto muda. A versão em SVG aparece no cabeçalho.
+- **Foto de perfil:** a padrão do Ângulo (`static/img/perfil-padrao.webp`) ou a que o usuário
+  escolhe em Configurações. Aparece no cabeçalho e na abertura do perfil.
 - **DNA:** termos com mais peso no vetor, por grupo, e a parcela de cada bloco.
 - **Gêneros:** radar da afinidade por gênero contra a parcela do gênero no catálogo.
 - **Mapa do gosto:** o catálogo inteiro em 2D (canvas), com os seus títulos destacados e uma
@@ -197,9 +196,13 @@ Cadastro em `/criar-conta/` (e-mail + senha; o username público é gerado, como
 - **Preferências:** os controles do playground são salvos sozinhos, na sessão ou na conta.
 - **Força bruta:** com o [django-axes](https://github.com/jazzband/django-axes), 5 senhas erradas
   para o mesmo e-mail, a partir do mesmo IP, bloqueiam novas tentativas por 15 minutos.
-- **Configurações** (`/configuracoes/`): troca do nome público e da senha, download de todos os
-  dados em JSON (conta sem a senha, ajustes, avaliações e histórico de eventos) e exclusão da conta,
-  confirmada com a senha, que apaga na hora tudo o que pertence a ela.
+- **Configurações** (`/configuracoes/`): foto de perfil, troca do nome público e da senha,
+  download de todos os dados em JSON (conta sem a senha, foto, ajustes, avaliações e histórico de
+  eventos) e exclusão da conta, confirmada com a senha, que apaga na hora tudo o que pertence a ela.
+- **Foto de perfil:** JPEG, PNG ou WebP até 4 MB (o Vercel recusa corpos acima de 4,5 MB). O
+  Pillow decodifica o arquivo, recorta em quadrado e grava um WebP 384 × 384 sem os metadados do
+  original (EXIF, localização). Os bytes ficam no banco (`accounts.ProfilePhoto`), porque o Vercel
+  não tem disco persistente; a URL leva a versão (`?v=`), então o navegador guarda a foto em cache.
 - **Limpeza dos anônimos:** `python manage.py purge_anonymous` apaga as sessões expiradas e o
   histórico de gosto que ficou sem sessão. No Vercel, o cron de `vercel.json` chama
   `/api/cron/purge-anonymous/` uma vez por dia (07:00 UTC) com `Authorization: Bearer $CRON_SECRET`.
@@ -268,7 +271,7 @@ e as contas (cadastro, login, bloqueio, mescla do histórico e preferências).
 
 ```
 Django/recomendador_filmes/
-├── accounts/                # usuário (login por e-mail), cadastro, login, axes
+├── accounts/                # usuário (login por e-mail), cadastro, login, axes, foto de perfil
 ├── catalog/                 # modelos Title/Genre, importadores e `import_dataset`
 │   └── importers/           # base.py (limpeza), tmdb.py, myanimelist.py, loader.py (upsert)
 ├── recommender/             # o motor
@@ -279,7 +282,6 @@ Django/recomendador_filmes/
 │   ├── engine.py            # índice, cache, filtro híbrido, MMR, explicações
 │   ├── preferences.py       # preferências do filtro (sessão ou conta)
 │   ├── insights.py          # números, radar, títulos que te definem, conforto, watchlist
-│   ├── avatar.py            # avatar ASCII gerado do DNA
 │   ├── projection.py        # mapa do gosto: SVD + t-SNE
 │   └── models.py            # Interaction, mescla de histórico, UserPreferences
 ├── api/                     # endpoints JSON

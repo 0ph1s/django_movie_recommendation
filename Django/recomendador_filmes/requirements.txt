@@ -10,3 +10,5 @@ psycopg[binary]>=3.2
 whitenoise>=6.7
 # Contas: bloqueio de tentativas de login (estado no banco, funciona no serverless).
 django-axes>=9.0
+# Foto de perfil: valida, recorta e reescreve a imagem enviada (sem os metadados do original).
+pillow>=11.0

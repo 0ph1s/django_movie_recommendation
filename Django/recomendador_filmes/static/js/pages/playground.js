@@ -7,7 +7,6 @@ import { initMagnetic } from '../fx/magnetic.js';
 import { scrollToElement } from '../fx/smooth-scroll.js';
 import { initTilt } from '../fx/tilt.js';
 import { api, isAbort } from '../lib/api.js';
-import { refreshHeaderAvatar } from '../lib/avatar.js';
 import { debounce, esc, fmt, KIND_LABEL, KIND_PLURAL } from '../lib/format.js';
 import { posterCaption, posterHTML } from '../lib/poster.js';
 
@@ -21,6 +20,12 @@ const POSITIVE = new Set(['favorite', 'like']);
 const STATE_LABEL = {
   favorite: 'favorito', like: 'curti', dislike: 'não curti', seen: 'já vi', watchlist: 'quero assistir',
 };
+// Filtros da lista "Seu perfil" (na ordem em que aparecem).
+const STATE_FILTER = {
+  favorite: 'Favoritos', like: 'Curti', dislike: 'Não curti', seen: 'Já vi', watchlist: 'Quero assistir',
+};
+// Acima disso, a lista mostra só os mais recentes e ganha filtros e "Mostrar todos".
+const HISTORY_PREVIEW = 12;
 // O que cada botão faz a partir do estado atual (null = tira o título do perfil).
 const NEXT_STATE = {
   like: (atual) => (POSITIVE.has(atual) ? null : 'like'),
@@ -60,6 +65,8 @@ class Playground {
     this.reduced = reduced;
     this.catalog = { q: '', kind: '', offset: 0, total: 0, first: true };
     this.history = new Map();   // title_id -> { state, title }
+    this.historyFilter = '';     // estado escolhido no filtro da lista (vazio = todos)
+    this.historyExpanded = false;
     this.mode = 'profile';
     this.similar = null;        // card do título de referência no modo "parecidos"
 
@@ -73,6 +80,8 @@ class Playground {
       tabs: $$('[data-mode]', raiz),
       stats: $('[data-stats]', raiz),
       history: $('[data-history]', raiz),
+      historyFilters: $('[data-history-filters]', raiz),
+      historyMore: $('[data-history-more]', raiz),
       reset: $('[data-reset]', raiz),
       dna: $('[data-dna]', raiz),
       dnaList: $('[data-dna-list]', raiz),
@@ -90,11 +99,24 @@ class Playground {
     };
     this.refreshSoon = debounce(() => this.refresh(), 140);
     this.savePrefsSoon = debounce(() => this.savePrefs(), 600);
-    this.refreshAvatarSoon = debounce(refreshHeaderAvatar, 800);
+  }
+
+  /**
+   * No desktop (lg) o painel de recomendações é fixo e rola sozinho: a roda sobre ele não pode
+   * ir para o Lenis. Abaixo disso ele faz parte da página, e marcá-lo travava a rolagem suave
+   * ao passar por ele (a roda virava rolagem nativa no meio do caminho).
+   */
+  syncPanelScroll() {
+    const painel = $('[data-panel]');
+    const desktop = window.matchMedia('(min-width: 64rem)');
+    const aplicar = () => painel?.toggleAttribute('data-lenis-prevent', desktop.matches);
+    aplicar();
+    desktop.addEventListener('change', aplicar);
   }
 
   async start() {
     this.bind();
+    this.syncPanelScroll();
     this.el.sliders.forEach((s) => this.showSlider(s));
     this.syncInks();
 
@@ -153,6 +175,19 @@ class Playground {
     el.history.addEventListener('click', (evento) => {
       const botao = evento.target.closest('[data-remove]');
       if (botao) this.removeState(Number(botao.dataset.remove));
+    });
+    el.historyFilters.addEventListener('click', (evento) => {
+      const botao = evento.target.closest('[data-history-filter]');
+      if (!botao) return;
+      this.historyFilter = botao.dataset.historyFilter;
+      this.historyExpanded = false;
+      this.renderHistory();
+    });
+    el.historyMore.addEventListener('click', () => {
+      this.historyExpanded = !this.historyExpanded;
+      this.renderHistory();
+      // Ao recolher, volta ao começo da lista em vez de deixar a página "pular".
+      if (!this.historyExpanded) el.history.scrollIntoView({ block: 'nearest' });
     });
 
     el.reset.addEventListener('click', async () => {
@@ -273,7 +308,7 @@ class Playground {
     const base = 'whitespace-nowrap rounded-full border px-2.5 py-1 text-xs transition-colors';
     const tamanho = compact ? '' : 'flex-1';
     return `
-      <div class="mt-2 flex items-center gap-1.5" role="group" aria-label="Avaliar ${esc(t.title)}">
+      <div class="mt-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="Avaliar ${esc(t.title)}">
         <button type="button" data-act="like" aria-pressed="${PRESSED.like(estado)}"
           class="${base} ${tamanho} border-rule hover:border-cyan aria-pressed:border-cyan aria-pressed:bg-cyan aria-pressed:text-night">Curti</button>
         <button type="button" data-act="dislike" aria-pressed="${PRESSED.dislike(estado)}"
@@ -322,7 +357,6 @@ class Playground {
   applyProfile(dados) {
     this.setHistory(dados.history);
     this.renderOffer(dados.account_offer);
-    this.refreshAvatarSoon();
   }
 
   /** Cartão "Guardar meu perfil" (só existe para anônimos). */
@@ -380,10 +414,30 @@ class Playground {
     const itens = [...this.history.values()].reverse();  // mais recente primeiro
     el.reset.disabled = itens.length === 0;
     if (!itens.length) {
+      el.historyFilters.hidden = true;
+      el.historyMore.hidden = true;
       el.history.innerHTML = '<li class="text-sm leading-relaxed text-dim">Nenhum título marcado ainda. Use “Curti” nos pôsteres do catálogo.</li>';
       return;
     }
-    el.history.innerHTML = itens.map(({ state, title }) => `
+    // Muitos títulos: filtros por marcação e só os mais recentes, até pedir todos.
+    const contagem = {};
+    itens.forEach(({ state }) => { contagem[state] = (contagem[state] || 0) + 1; });
+    const longa = itens.length > HISTORY_PREVIEW;
+    if (!contagem[this.historyFilter]) this.historyFilter = '';
+    el.historyFilters.hidden = !longa;
+    el.historyFilters.innerHTML = longa ? [['', 'Todos', itens.length],
+      ...Object.keys(STATE_FILTER).filter((k) => contagem[k]).map((k) => [k, STATE_FILTER[k], contagem[k]])]
+      .map(([estado, rotulo, n]) => `<button type="button" data-history-filter="${estado}" aria-pressed="${estado === this.historyFilter}"
+          class="rounded-full border border-rule px-2.5 py-1 text-xs text-dim hover:text-silver aria-pressed:border-silver aria-pressed:bg-silver aria-pressed:text-night">${rotulo} <span class="tabular-nums opacity-70">${n}</span></button>`)
+      .join('') : '';
+    const filtrados = this.historyFilter ? itens.filter((i) => i.state === this.historyFilter) : itens;
+    const sobra = filtrados.length - HISTORY_PREVIEW;
+    el.historyMore.hidden = sobra <= 0;
+    el.historyMore.setAttribute('aria-expanded', String(this.historyExpanded));
+    el.historyMore.textContent = this.historyExpanded ? 'Mostrar menos' : `Mostrar todos (mais ${sobra})`;
+    const visiveis = this.historyExpanded ? filtrados : filtrados.slice(0, HISTORY_PREVIEW);
+
+    el.history.innerHTML = visiveis.map(({ state, title }) => `
       <li>
         <button type="button" data-remove="${title.id}" aria-label="Tirar ${esc(title.title)} do perfil (${STATE_LABEL[state]})"
           title="${esc(STATE_LABEL[state])}" class="chip group ${chipClass(state)} hover:border-silver">

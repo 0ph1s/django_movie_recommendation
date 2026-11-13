@@ -16,7 +16,6 @@ import numpy as np
 
 from catalog.models import Title
 
-from .avatar import avatar_grid
 from .config import get_config
 from .engine import describe_profile
 from .features import KINDS
@@ -174,7 +173,6 @@ def build_insights(indice, historico, exclude=()):
         'map_available': meta.has_map,
         'map': _map(indice, meta, historico, perfil) if aberto['map'] and meta.has_map else None,
         'excluded': sorted(excluir),
-        'avatar': avatar_grid(resumo_total),
         'stats': _stats(historico) if aberto['stats'] else None,
         'dna': (
             (describe_profile(indice, perfil, limite=DNA_TOKENS) if excluir else resumo_total)

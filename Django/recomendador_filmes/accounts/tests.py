@@ -16,7 +16,7 @@ SENHA = 'cosseno-similar-42'
 
 class ContaTestCase(ApiTestCase):
     def criar_conta(self, email='ana@exemplo.com', senha=SENHA, **extra):
-        return self.client.post(reverse('accounts:signup'), {'email': email, 'password': senha, **extra})
+        return self.client.post(reverse('accounts:signup'), {'email': email, 'password': senha, 'password2': senha, **extra})
 
     def entrar(self, email='ana@exemplo.com', senha=SENHA, **extra):
         return self.client.post(reverse('accounts:login'), {'username': email, 'password': senha, **extra})
@@ -49,6 +49,17 @@ class CadastroTests(ContaTestCase):
     def test_senha_fraca_e_recusada(self):
         resposta = self.criar_conta(senha='12345678')
         self.assertEqual(resposta.status_code, 200)
+        self.assertFalse(User.objects.exists())
+
+    def test_confirmacao_diferente_e_recusada(self):
+        resposta = self.criar_conta(password2='outra-coisa-9')
+        self.assertContains(resposta, 'As senhas não são iguais.')
+        self.assertFalse(User.objects.exists())
+
+    def test_confirmacao_e_obrigatoria(self):
+        resposta = self.client.post(reverse('accounts:signup'), {'email': 'ana@exemplo.com', 'password': SENHA})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTrue(resposta.context['form'].errors.get('password2'))
         self.assertFalse(User.objects.exists())
 
     def test_usernames_gerados_nao_colidem(self):

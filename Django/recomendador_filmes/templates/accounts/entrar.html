@@ -17,7 +17,7 @@
   <button type="submit" class="w-full rounded-full bg-silver px-5 py-3 text-sm font-semibold text-night hover:bg-cyan">Entrar</button>
   <p class="text-center text-sm text-dim">
     Ainda não tem conta?
-    <a href="{% url 'accounts:signup' %}?next={{ next|urlencode }}" class="text-silver underline underline-offset-4" data-transition-label="Criar conta">Criar conta</a>
+    <a href="{% url 'accounts:signup' %}?next={{ next|urlencode }}" class="text-silver hover:text-cyan transition-colors" data-transition-label="Criar conta">Criar conta</a>
   </p>
 </form>
 {% endblock %}

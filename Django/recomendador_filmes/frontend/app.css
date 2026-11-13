@@ -44,6 +44,32 @@
     text-rendering: optimizeLegibility;
   }
 
+  /* Tudo o que é clicável mostra a mãozinha (o preflight do Tailwind deixa os botões com a
+     seta padrão). Desabilitado mostra que não dá. Fica na camada base: um cursor-* específico
+     (ex.: grab no mapa) continua valendo. */
+  a[href],
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="switch"],
+  summary,
+  label:has(input[type="file"], input[type="checkbox"], input[type="radio"]),
+  select,
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="range"],
+  input[type="file"],
+  input[type="submit"],
+  input[type="button"] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"],
+  input:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+
   ::selection {
     background: var(--color-cyan);
     color: var(--color-night);
@@ -501,24 +527,69 @@ html.is-loading .loader {
     }
   }
 
-  /* Avatar ASCII: grade 12 × 12 de células quadradas. */
-  .avatar-grid {
-    display: inline-block;
-    padding: 1.1rem;
-    border: 1px solid var(--color-rule);
-    border-radius: 4px;
-    background: rgb(10 19 34 / 0.85);
-    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-    font-size: clamp(15px, 1.9vw, 24px);
-    font-weight: 700;
-    line-height: 1;
-    user-select: none;
+  /* Barras fixas (sticky) com fundo desfocado: numa camada própria de composição. Com a
+     rolagem suave em frações de pixel, sem isso o navegador as redesenha a cada quadro numa
+     linha de pixel diferente, e elas parecem tremer. */
+  .sticky-layer {
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
   }
-  .avatar-grid__row { display: block; white-space: pre; }
-  .avatar-grid__row > span {
-    display: inline-block;
-    width: 1em;
-    text-align: center;
+
+  /* Foto de perfil na abertura da página de perfil, ao lado do nome. */
+  .profile-photo {
+    display: block;
+    width: clamp(104px, 14vw, 200px);
+    aspect-ratio: 1;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    background: #000;
+    object-fit: cover;
+  }
+
+  /* Logado, a foto é o próprio link para trocá-la: o lápis aparece por cima no hover ou foco. */
+  .profile-photo-edit {
+    position: relative;
+    display: block;
+    width: fit-content;
+    border-radius: 999px;
+  }
+  .profile-photo-edit:focus-visible {
+    outline: 2px solid var(--color-cyan);
+    outline-offset: 4px;
+  }
+  .profile-photo-edit__overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 0.45rem;
+    border-radius: 999px;
+    background: rgb(10 19 34 / 0.66);
+    backdrop-filter: blur(2px);
+    color: var(--color-silver);
+    font-size: clamp(0.6875rem, 0.9vw, 0.8125rem);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .profile-photo-edit:hover .profile-photo-edit__overlay,
+  .profile-photo-edit:focus-visible .profile-photo-edit__overlay { opacity: 1; }
+
+  /* Sem hover (toque), o lápis fica sempre visível num selo no canto da foto. */
+  @media (hover: none) {
+    .profile-photo-edit__overlay {
+      inset: auto 0 0 auto;
+      width: 2rem;
+      height: 2rem;
+      border: 2px solid var(--color-night);
+      background: var(--color-silver);
+      backdrop-filter: none;
+      color: var(--color-night);
+      opacity: 1;
+    }
+    .profile-photo-edit__overlay svg { width: 15px; height: 15px; }
+    .profile-photo-edit__label { display: none; }
   }
 
   /* Interruptor (role="switch"): ligado = título no cálculo do perfil. */
