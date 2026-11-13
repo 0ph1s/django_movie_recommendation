@@ -6,13 +6,13 @@
   <div class="pointer-events-none absolute inset-x-0 bottom-0 h-3/4 bg-linear-to-t from-night via-night/75 to-transparent" aria-hidden="true"></div>
   <div class="relative mx-auto w-full max-w-[1600px]">
     <h1 class="display max-w-[12ch] text-[clamp(4.75rem,15.5vw,15.5rem)] font-black" data-hero-title>Seu gosto é um vetor.</h1>
-    <div class="mt-10 grid gap-8 md:grid-cols-[minmax(0,36rem)_1fr] md:items-end">
+    <div class="mt-10 grid gap-8 lg:grid-cols-[minmax(0,36rem)_1fr] lg:items-end">
       <p class="text-lg leading-relaxed text-silver/85 sm:text-xl" data-hero-copy>
         Marque o que você já viu. O Ângulo mede o cosseno entre o seu perfil e cada um dos
         {{ total_titles|intcomma }} títulos do catálogo{% if counts %} ({% for c in counts %}{{ c.total|intcomma }} {% if c.kind == 'movie' %}filmes{% elif c.kind == 'series' %}séries{% else %}animes{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}){% endif %}
         e devolve os mais próximos, sem trazer título obscuro ou mal avaliado.
       </p>
-      <div class="flex flex-wrap items-center gap-3 md:justify-end" data-hero-actions>
+      <div class="flex flex-wrap items-center gap-3 lg:justify-end" data-hero-actions>
         <a href="{% url 'web:playground' %}" class="magnetic rounded-full bg-cyan px-7 py-4 text-base font-semibold text-night" data-magnetic>
           <span class="magnetic__label">Montar meu perfil</span>
         </a>
