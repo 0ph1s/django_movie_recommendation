@@ -10,4 +10,5 @@ urlpatterns = [
     path('sair/', views.logout_view, name='logout'),
     path('configuracoes/', views.settings_view, name='settings'),
     path('configuracoes/exportar/', views.export_view, name='export'),
+    path('configuracoes/foto/', views.photo_view, name='photo'),
 ]

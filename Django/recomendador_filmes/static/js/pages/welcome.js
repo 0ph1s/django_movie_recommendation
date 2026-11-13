@@ -4,8 +4,7 @@ import { gsap } from 'gsap';
 
 import { initTilt } from '../fx/tilt.js';
 import { api } from '../lib/api.js';
-import { refreshHeaderAvatar } from '../lib/avatar.js';
-import { debounce, esc } from '../lib/format.js';
+import { esc } from '../lib/format.js';
 import { posterCaption, posterHTML } from '../lib/poster.js';
 
 export default function welcome({ field, reduced }) {
@@ -36,9 +35,7 @@ export default function welcome({ field, reduced }) {
     gsap.from(grade.children, { y: 40, autoAlpha: 0, duration: 0.9, ease: 'expo.out', stagger: 0.03 });
   }
 
-  const avatarDepois = debounce(refreshHeaderAvatar, 800);
   const atualizar = () => {
-    avatarDepois();
     contador.textContent = curtidos.size;
     progresso.style.width = `${Math.min(curtidos.size / meta, 1) * 100}%`;
     continuar.setAttribute('aria-disabled', String(curtidos.size < meta));

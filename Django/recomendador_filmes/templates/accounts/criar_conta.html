@@ -14,13 +14,14 @@
   {% for erro in form.non_field_errors %}<p class="text-sm text-amber">{{ erro }}</p>{% endfor %}
   {% include 'accounts/_field.html' with field=form.email %}
   {% include 'accounts/_field.html' with field=form.password %}
+  {% include 'accounts/_field.html' with field=form.password2 %}
   <p class="text-xs leading-relaxed text-dim">
     Ainda não há recuperação de senha por e-mail. Guarde a senha num gerenciador.
   </p>
   <button type="submit" class="w-full rounded-full bg-silver px-5 py-3 text-sm font-semibold text-night hover:bg-cyan">Criar conta</button>
   <p class="text-center text-sm text-dim">
     Já tem conta?
-    <a href="{% url 'accounts:login' %}?next={{ next|urlencode }}" class="text-silver underline underline-offset-4" data-transition-label="Entrar">Entrar</a>
+    <a href="{% url 'accounts:login' %}?next={{ next|urlencode }}" class="text-silver hover:text-cyan transition-colors" data-transition-label="Entrar">Entrar</a>
   </p>
 </form>
 {% endblock %}

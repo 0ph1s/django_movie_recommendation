@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Perfil | Ângulo{% endblock %}
 {% block description %}O seu gosto desenhado: DNA do perfil, gêneros, títulos que mais pesam e pontos cegos.{% endblock %}
@@ -12,20 +13,38 @@
     </p>
   {% endif %}
 
-  <!-- Abertura: avatar, nome e números -->
-  <header class="grid gap-10 pb-16 pt-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-    <div>
-      <p class="text-sm text-dim">{% if user.is_authenticated %}Perfil de gosto{% else %}Perfil deste navegador{% endif %}</p>
-      <h1 class="display mt-3 break-words text-[clamp(3.5rem,9vw,8.5rem)] font-black" data-reveal>{% if user.is_authenticated %}{{ user.username }}{% else %}Seu perfil{% endif %}</h1>
-      <dl class="mt-10 grid max-w-3xl grid-cols-2 gap-x-8 gap-y-6" data-stats></dl>
+  <!-- Abertura: foto, nome e números -->
+  <header class="pb-16 pt-4">
+    <div class="flex items-center gap-5 sm:gap-8">
+      <figure class="shrink-0">
+        {% if user.is_authenticated %}
+          <a href="{% url 'accounts:settings' %}" class="profile-photo-edit" aria-label="Trocar foto de perfil" data-transition-label="Configurações">
+            <img src="{{ user.photo_url }}" alt="Foto de perfil de {{ user.username }}" width="200" height="200" class="profile-photo">
+            <span class="profile-photo-edit__overlay" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16.9 3.6a2.1 2.1 0 0 1 3 3L8.4 18.1 4 19.5l1.4-4.4L16.9 3.6Z"/>
+                <path d="m14.5 6 3.5 3.5"/>
+              </svg>
+              <span class="profile-photo-edit__label">Trocar foto</span>
+            </span>
+          </a>
+        {% else %}
+          <img src="{% static 'img/perfil-padrao.webp' %}" alt="Foto de perfil padrão" width="200" height="200" class="profile-photo">
+        {% endif %}
+      </figure>
+      <div class="min-w-0">
+        <h1 class="display break-words text-[clamp(2.5rem,9vw,8.5rem)] font-black" data-reveal>{% if user.is_authenticated %}{{ user.username }}{% else %}Seu perfil{% endif %}</h1>
+        {% if not user.is_authenticated %}
+          <p class="mt-3 text-xs text-dim">
+            <a href="{% url 'accounts:signup' %}?next={% url 'web:profile' %}" class="text-silver transition-colors hover:text-cyan" data-transition-label="Criar conta">Crie uma conta</a> para escolher uma foto.
+          </p>
+        {% endif %}
+      </div>
     </div>
-    <figure class="justify-self-start lg:justify-self-end">
-      <pre class="avatar-grid" data-avatar aria-hidden="true"></pre>
-      <figcaption class="mt-3 max-w-[16rem] text-xs leading-relaxed text-dim">Avatar desenhado a partir do DNA do perfil. Muda quando o seu gosto muda.</figcaption>
-    </figure>
+    <dl class="mt-10 grid max-w-3xl grid-cols-2 gap-x-8 gap-y-6" data-stats></dl>
   </header>
 
-  <nav class="sticky top-3 z-20 -mx-2 mb-16 sm:-mx-4" aria-label="Seções do perfil">
+  <nav class="sticky-layer sticky top-3 z-20 -mx-2 mb-16 sm:-mx-4" aria-label="Seções do perfil">
     <button type="button" class="profile-nav-toggle sm:hidden" aria-expanded="false" aria-controls="profile-nav" data-profile-nav-toggle>
       <span class="profile-nav-toggle__bars" aria-hidden="true"><span></span><span></span><span></span></span>
       <span><span class="sr-only">Seções, atual: </span><span data-profile-nav-current>DNA</span></span>

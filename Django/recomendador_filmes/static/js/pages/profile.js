@@ -1,4 +1,4 @@
-// Página de perfil: números, avatar ASCII, DNA, radar de gêneros, títulos que te definem
+// Página de perfil: números, DNA, radar de gêneros, títulos que te definem
 // (com o modo "e se"), conforto × exploração e watchlist. Os dados chegam no próprio HTML
 // (json_script) e a API os recalcula a cada mudança.
 import { gsap } from 'gsap';
@@ -8,7 +8,6 @@ import { hideMenu, revealMenu } from '../fx/menu-motion.js';
 import { scrollToElement } from '../fx/smooth-scroll.js';
 import { initTilt } from '../fx/tilt.js';
 import { api, isAbort } from '../lib/api.js';
-import { refreshHeaderAvatar } from '../lib/avatar.js';
 import { esc, fmt, KIND_LABEL, KIND_PLURAL } from '../lib/format.js';
 import { posterCaption, posterHTML } from '../lib/poster.js';
 import { loadTitle, TasteMap } from '../lib/taste-map.js';
@@ -16,8 +15,6 @@ import { loadTitle, TasteMap } from '../lib/taste-map.js';
 const $ = (seletor, raiz = document) => raiz.querySelector(seletor);
 const $$ = (seletor, raiz = document) => [...raiz.querySelectorAll(seletor)];
 
-const RAMP = ' .:-=+*#%@';
-const INK = { cyan: 'var(--color-cyan)', amber: 'var(--color-amber)', silver: 'var(--color-silver)', dim: 'var(--color-dim)' };
 const DNA_COLUMNS = [
   { title: 'Gêneros', groups: ['gênero'] },
   { title: 'Pessoas', groups: ['elenco', 'direção'] },
@@ -63,7 +60,6 @@ class ProfilePage {
     this.data = dados;
     this.reduced = reduced;
     this.excluded = new Set();
-    this.avatar = new AsciiAvatar($('[data-avatar]'), { reduced });
     this.bars = new Map();       // chave -> largura atual (para animar as mudanças)
     this.radarValues = null;
     this.map = null;             // TasteMap, criado uma vez e atualizado a cada recálculo
@@ -205,7 +201,6 @@ class ProfilePage {
     }
     this.excluded.delete(id);
     await this.reload({ everything: true });
-    refreshHeaderAvatar();
   }
 
   toast(texto) {
@@ -221,7 +216,6 @@ class ProfilePage {
 
   renderAll({ first = false } = {}) {
     this.renderStats();
-    this.avatar.render(this.data.avatar, { first });
     this.renderSection('dna', () => this.renderDNA());
     this.renderSection('radar', () => this.renderRadar());
     this.renderSection('map', () => this.renderMap());
@@ -372,7 +366,7 @@ class ProfilePage {
             <button type="button" data-map-act="${acao}" aria-pressed="${PRESSED[acao](estado)}"
               class="whitespace-nowrap rounded-full border border-rule px-2.5 py-1 text-xs hover:border-silver/60 aria-pressed:border-cyan aria-pressed:bg-cyan aria-pressed:text-night">${rotulo}</button>`).join('')}
         </div>
-        <a href="/playground/?similar=${id}" class="mt-5 inline-block text-sm text-dim underline underline-offset-4 hover:text-silver" data-transition-label="Playground">Ver parecidos no playground</a>
+        <a href="/playground/?similar=${id}" class="mt-5 inline-block text-sm text-dim hover:text-silver transition-colors" data-transition-label="Playground">Ver parecidos no playground</a>
       </div>`;
   }
 
@@ -630,7 +624,7 @@ class ProfilePage {
     const corpo = this.body('watchlist');
     const lista = this.data.watchlist;
     if (!lista.length) {
-      corpo.innerHTML = `<p class="text-lg text-dim">Nada aqui ainda. Use o marcador “Quero assistir” nos pôsteres do <a class="text-silver underline underline-offset-4" href="/playground/">playground</a> para guardar o que quer ver.</p>`;
+      corpo.innerHTML = `<p class="text-lg text-dim">Nada aqui ainda. Use o marcador “Quero assistir” nos pôsteres do <a class="text-silver hover:text-cyan transition-colors" href="/playground/">playground</a> para guardar o que quer ver.</p>`;
       return;
     }
     corpo.innerHTML = `
@@ -727,88 +721,3 @@ function radarSVG(eixos) {
     </svg>`;
 }
 
-// ---- avatar ASCII
-
-class AsciiAvatar {
-  constructor(el, { reduced }) {
-    this.el = el;
-    this.reduced = reduced;
-    this.rows = null;
-    this.timer = null;
-  }
-
-  render(avatar, { first = false } = {}) {
-    if (!this.el) return;
-    this.el.style.color = INK[avatar.ink] || INK.cyan;
-    const anteriores = this.rows;
-    this.rows = avatar.rows;
-    if (!anteriores || first || this.reduced) {
-      this.el.innerHTML = avatar.rows.map((linha) => `<span class="avatar-grid__row">${[...linha].map((c) => cellHTML(c)).join('')}</span>`).join('');
-      if (first && !this.reduced) this.intro();
-    } else {
-      this.morph(avatar.rows);
-    }
-    this.startFlicker();
-  }
-
-  cells() {
-    return $$('[data-cell]', this.el);
-  }
-
-  /** Entrada: cada célula embaralha caracteres antes de assentar no seu. */
-  intro() {
-    this.cells().forEach((celula) => {
-      const final = celula.dataset.cell;
-      if (final === ' ') return;
-      const estado = { i: 0 };
-      gsap.to(estado, {
-        i: 8,
-        duration: 0.9,
-        delay: Math.random() * 0.6,
-        ease: 'none',
-        onUpdate: () => { celula.textContent = estado.i >= 7.5 ? final : RAMP[1 + Math.floor(Math.random() * (RAMP.length - 1))]; },
-      });
-    });
-  }
-
-  /** Perfil mudou: as células que mudam passam por um caractere aleatório até o novo. */
-  morph(novas) {
-    const celulas = this.cells();
-    novas.join('').split('').forEach((caractere, i) => {
-      const celula = celulas[i];
-      if (!celula || celula.dataset.cell === caractere) return;
-      setTimeout(() => {
-        celula.textContent = RAMP[1 + Math.floor(Math.random() * (RAMP.length - 1))];
-        setTimeout(() => setCell(celula, caractere), 140);
-      }, Math.random() * 500);
-    });
-  }
-
-  /** Cintilação: algumas células sobem ou descem um nível na rampa por um instante. */
-  startFlicker() {
-    if (this.reduced || this.timer) return;
-    this.timer = setInterval(() => {
-      if (document.hidden) return;
-      const celulas = this.cells().filter((c) => c.dataset.cell !== ' ');
-      for (let k = 0; k < 3 && celulas.length; k += 1) {
-        const celula = celulas[Math.floor(Math.random() * celulas.length)];
-        const nivel = RAMP.indexOf(celula.dataset.cell);
-        const vizinho = Math.min(Math.max(nivel + (Math.random() < 0.5 ? -1 : 1), 1), RAMP.length - 1);
-        celula.textContent = RAMP[vizinho];
-        setTimeout(() => { celula.textContent = celula.dataset.cell; }, 260);
-      }
-    }, 140);
-  }
-}
-
-function cellHTML(caractere) {
-  const nivel = Math.max(RAMP.indexOf(caractere), 0) / (RAMP.length - 1);
-  return `<span data-cell="${caractere === ' ' ? ' ' : esc(caractere)}" style="opacity:${(0.35 + 0.65 * nivel).toFixed(2)}">${caractere === ' ' ? '&nbsp;' : esc(caractere)}</span>`;
-}
-
-function setCell(celula, caractere) {
-  const nivel = Math.max(RAMP.indexOf(caractere), 0) / (RAMP.length - 1);
-  celula.dataset.cell = caractere;
-  celula.style.opacity = (0.35 + 0.65 * nivel).toFixed(2);
-  celula.innerHTML = caractere === ' ' ? '&nbsp;' : esc(caractere);
-}

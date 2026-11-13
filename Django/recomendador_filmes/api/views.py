@@ -29,7 +29,6 @@ from recommender.engine import (
     similarity_matrix,
 )
 from recommender import preferences
-from recommender.avatar import avatar_etag, avatar_grid, avatar_svg
 from recommender.insights import build_insights, profile_summary
 from recommender.maintenance import purge_anonymous
 from recommender.models import STATE_OF_LEGACY_SIGNAL, Interaction, clear_states, owner_key, set_state
@@ -330,27 +329,6 @@ def map_points(request):
         resposta = HttpResponse(corpo, content_type='application/json')
     resposta['ETag'] = etag
     resposta['Cache-Control'] = 'public, max-age=3600'
-    return resposta
-
-
-@require_GET
-def profile_avatar(request):
-    """Avatar ASCII em SVG, gerado do DNA do perfil. Com ETag: muda quando o gosto muda."""
-    historico = _history(request)
-    resumo = None
-    if any(i.weight > 0 for i in historico):
-        try:
-            resumo = profile_summary(get_index(), historico)
-        except EmptyCatalog:
-            resumo = None
-    grade = avatar_grid(resumo)
-    etag = f'"{avatar_etag(grade)}"'
-    if request.headers.get('If-None-Match') == etag:
-        resposta = HttpResponse(status=304)
-    else:
-        resposta = HttpResponse(avatar_svg(grade), content_type='image/svg+xml; charset=utf-8')
-    resposta['ETag'] = etag
-    resposta['Cache-Control'] = 'private, no-cache'
     return resposta
 
 

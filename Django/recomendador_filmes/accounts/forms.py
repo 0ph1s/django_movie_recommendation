@@ -4,10 +4,11 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.core.exceptions import ValidationError
 
 from .models import User, normalize_email, username_validator
+from .photos import process_photo
 
 
 class SignupForm(forms.Form):
-    """Cadastro em dois campos. O username é gerado e pode ser trocado depois."""
+    """Cadastro: e-mail, senha e a confirmação da senha. O username é gerado e pode ser trocado depois."""
 
     email = forms.EmailField(
         label='E-mail', max_length=254,
@@ -17,6 +18,11 @@ class SignupForm(forms.Form):
         label='Senha', strip=False,
         widget=forms.PasswordInput(attrs={'autocomplete': 'new-password', 'class': 'field-input'}),
         help_text='Pelo menos 8 caracteres, sem ser só números nem uma senha comum.',
+    )
+    password2 = forms.CharField(
+        label='Confirmar senha', strip=False,
+        widget=forms.PasswordInput(attrs={'autocomplete': 'new-password', 'class': 'field-input'}),
+        help_text='Digite a mesma senha de novo.',
     )
 
     def clean_email(self):
@@ -28,6 +34,9 @@ class SignupForm(forms.Form):
     def clean(self):
         dados = super().clean()
         senha = dados.get('password')
+        confirmacao = dados.get('password2')
+        if senha and confirmacao and senha != confirmacao:
+            self.add_error('password2', 'As senhas não são iguais.')
         if senha:
             try:
                 password_validation.validate_password(senha, User(email=dados.get('email', '')))
@@ -126,3 +135,17 @@ class DeleteAccountForm(forms.Form):
         if not self.user.check_password(senha):
             raise ValidationError('Senha incorreta.')
         return senha
+
+
+class PhotoForm(forms.Form):
+    """Envio da foto de perfil. O arquivo é validado e reprocessado em `clean_photo`."""
+
+    photo = forms.FileField(
+        label='Nova foto',
+        widget=forms.FileInput(attrs={'accept': 'image/jpeg,image/png,image/webp', 'class': 'sr-only'}),
+        help_text='JPEG, PNG ou WebP até 4 MB. A foto é recortada em quadrado.',
+        error_messages={'required': 'Escolha uma imagem.'},
+    )
+
+    def clean_photo(self):
+        return process_photo(self.cleaned_data['photo'])   # bytes do WebP final

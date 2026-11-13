@@ -57,19 +57,19 @@
   <header class="relative z-20">
     <nav class="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-5 sm:px-8" aria-label="Principal">
       <a href="{% url 'web:home' %}" class="display text-[2rem] font-black leading-none tracking-tight" aria-label="Ângulo, página inicial">Ângulo</a>
-      <div class="flex items-center gap-3 sm:gap-6">
+      <div class="flex shrink-0 items-center gap-3 whitespace-nowrap sm:gap-6">
         {% if page != 'playground' %}
-          <a href="{% url 'web:playground' %}" class="magnetic rounded-full bg-silver px-5 py-2.5 text-sm font-semibold text-night" data-magnetic>
-            <span class="magnetic__label">Abrir o playground</span>
+          <a href="{% url 'web:playground' %}" class="magnetic rounded-full bg-silver px-4 py-2.5 text-sm font-semibold text-night sm:px-5" data-magnetic>
+            <span class="magnetic__label"><span class="sm:hidden">Playground</span><span class="hidden sm:inline">Abrir o playground</span></span>
           </a>
         {% else %}
-          <a href="{% url 'web:home' %}#metodo" class="text-sm text-dim underline-offset-4 hover:text-silver hover:underline" data-transition-label="Como funciona">Como funciona</a>
+          <a href="{% url 'web:home' %}#metodo" class="text-sm text-dim hover:text-silver transition-colors" data-transition-label="Como funciona">Como funciona</a>
         {% endif %}
         {% if user.is_authenticated %}
           <details class="account-menu relative" data-account-menu>
-            <summary class="flex cursor-pointer list-none items-center gap-2 rounded-full border border-rule py-1 pl-1 pr-3 text-sm hover:border-silver/60" aria-label="Menu da conta de {{ user.username }}">
-              <img src="{% url 'api:profile-avatar' %}" alt="" width="28" height="28" class="size-7 rounded-full bg-night" data-header-avatar>
-              <span class="hidden max-w-[10rem] truncate sm:inline">{{ user.username }}</span>
+            <summary class="flex cursor-pointer list-none items-center gap-2 rounded-full border border-rule p-1 text-sm hover:border-silver/60 sm:pr-3" aria-label="Menu da conta de {{ user.username }}">
+              <img src="{{ user.photo_url }}" alt="" width="28" height="28" class="size-7 rounded-full bg-night object-cover" data-header-photo>
+              <span class="hidden max-w-[10rem] truncate sm:inline" data-header-username>{{ user.username }}</span>
             </summary>
             <div class="absolute right-0 top-full z-40 mt-2 w-56 rounded-sm border border-rule bg-night/95 py-2 text-sm shadow-lg shadow-night/60 backdrop-blur-md">
               <p class="truncate px-4 pb-2 text-xs text-dim">{{ user.email }}</p>
@@ -83,26 +83,25 @@
           </details>
         {% else %}
           {% if page != 'profile' %}
-            <a href="{% url 'web:profile' %}" class="flex items-center gap-2 rounded-full border border-rule py-1 pl-1 pr-3 text-sm hover:border-silver/60" data-transition-label="Perfil">
-              <img src="{% url 'api:profile-avatar' %}" alt="" width="28" height="28" class="size-7 rounded-full bg-night" data-header-avatar>
-              <span>Perfil</span>
+            <a href="{% url 'web:profile' %}" class="flex shrink-0 items-center gap-2 rounded-full border border-rule py-1 pl-1 pr-1 text-sm hover:border-silver/60 sm:pr-3" data-transition-label="Perfil" aria-label="Perfil">
+              <img src="{% static 'img/perfil-padrao.webp' %}" alt="" width="28" height="28" class="size-7 rounded-full bg-night object-cover">
+              <span class="hidden sm:inline">Perfil</span>
             </a>
           {% endif %}
           {% if page != 'auth' %}
-            <a href="{% url 'accounts:login' %}?next={{ request.get_full_path|urlencode }}" class="text-sm underline-offset-4 hover:underline" data-transition-label="Entrar">Entrar</a>
+            <a href="{% url 'accounts:login' %}?next={{ request.get_full_path|urlencode }}" class="text-sm hover:text-cyan transition-colors" data-transition-label="Entrar">Entrar</a>
           {% endif %}
         {% endif %}
       </div>
     </nav>
   </header>
 
-  {% if messages %}
-    <div class="pointer-events-none fixed inset-x-4 bottom-4 z-[80] flex flex-col items-start gap-2 sm:inset-x-8" role="status" aria-live="polite">
-      {% for message in messages %}
-        <p class="toast pointer-events-auto max-w-md rounded-sm border border-rule bg-night/95 px-4 py-3 text-sm shadow-lg shadow-night/60 backdrop-blur-md {% if message.level_tag == 'success' %}border-l-2 border-l-cyan{% endif %}">{{ message }}</p>
-      {% endfor %}
-    </div>
-  {% endif %}
+  {# Avisos: os do servidor (django.contrib.messages) e os que o JavaScript cria (data-toasts). #}
+  <div class="pointer-events-none fixed inset-x-4 bottom-4 z-[80] flex flex-col items-start gap-2 sm:inset-x-8" role="status" aria-live="polite" data-toasts>
+    {% for message in messages %}
+      <p class="toast pointer-events-auto max-w-md rounded-sm border border-rule bg-night/95 px-4 py-3 text-sm shadow-lg shadow-night/60 backdrop-blur-md {% if message.level_tag == 'success' %}border-l-2 border-l-cyan{% endif %}">{{ message }}</p>
+    {% endfor %}
+  </div>
 
   <main id="conteudo" class="relative z-10">
     {% block content %}{% endblock %}
@@ -112,9 +111,12 @@
     <div class="mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-8 text-sm text-dim sm:flex-row sm:justify-between sm:px-8">
       <div class="max-w-2xl space-y-1">
         <p>Filmes do TMDB 5000 Movie Dataset. Séries e animes de amostras nos formatos do TMDB e do MyAnimeList.</p>
-        <p>Capas de filmes e séries: <a class="underline underline-offset-4 hover:text-silver" href="https://www.themoviedb.org/" rel="noopener" target="_blank">TMDB</a>. Este produto usa a API do TMDB, mas não é endossado nem certificado pelo TMDB. Capas de animes: <a class="underline underline-offset-4 hover:text-silver" href="https://anilist.co/" rel="noopener" target="_blank">AniList</a>.</p>
+        <p>Capas de filmes e séries: <a class="text-silver hover:text-cyan transition-colors" href="https://www.themoviedb.org/" rel="noopener" target="_blank">TMDB</a>. Este produto usa a API do TMDB, mas não é endossado nem certificado pelo TMDB. Capas de animes: <a class="text-silver hover:text-cyan transition-colors" href="https://anilist.co/" rel="noopener" target="_blank">AniList</a>.</p>
       </div>
-      <p class="shrink-0">Similaridade do cosseno com Django, scikit-learn e NumPy.</p>
+    </div>
+    <div class="mx-auto flex max-w-[1600px] flex-col gap-1 border-t border-rule px-4 py-5 text-xs text-dim sm:flex-row sm:justify-between sm:gap-6 sm:px-8">
+      <p class="shrink-0">© {% now "Y" %} Ângulo. Todos os direitos reservados.</p>
+      <p class="max-w-3xl sm:text-right">Títulos, pôsteres, capas e marcas pertencem aos seus respectivos detentores e aparecem aqui só para identificar as obras. Sinopses e metadados vêm das fontes citadas acima.</p>
     </div>
   </footer>
 

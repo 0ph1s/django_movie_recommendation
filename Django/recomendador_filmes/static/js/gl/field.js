@@ -13,6 +13,8 @@ const INKS = {
 };
 
 const CELL_CSS_PX = 9;
+// A lente que segue o cursor só existe com mouse/trackpad: no celular (toque, sem hover) não.
+const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
 const MAX_DPR = 1.5;
 
 export class AsciiField {
@@ -71,6 +73,8 @@ export class AsciiField {
     window.addEventListener('scroll', () => { this.dirty = true; }, { passive: true });
     if (!this.reduced) {
       window.addEventListener('pointermove', (e) => this.#onPointer(e), { passive: true });
+      // Se o aparelho deixa de ter um ponteiro fino (ex.: modo celular), a lente some.
+      finePointer.addEventListener('change', () => { if (!finePointer.matches) this.#hidePointer(); });
     }
     this.resize();
     return true;
@@ -171,11 +175,18 @@ export class AsciiField {
   }
 
   #onPointer(e) {
-    if (e.pointerType === 'touch') return;
+    if (e.pointerType === 'touch' || !finePointer.matches) return;
     const p = this.pointer;
     if (p.tx < -1e3) { p.x = e.clientX; p.y = e.clientY; }  // primeira entrada: sem rastro
     p.tx = e.clientX;
     p.ty = e.clientY;
+  }
+
+  #hidePointer() {
+    const p = this.pointer;
+    p.x = p.y = p.tx = p.ty = -1e4;
+    p.force = 0;
+    this.dirty = true;
   }
 
   #bindQuad(programa) {

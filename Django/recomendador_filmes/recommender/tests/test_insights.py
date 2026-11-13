@@ -1,5 +1,5 @@
 """Página de perfil: insights (estatísticas, DNA, radar, títulos que te definem, conforto,
-watchlist, modo "e se"), avatar ASCII e as páginas /perfil/ e /bem-vindo/."""
+watchlist, modo "e se") e as páginas /perfil/ e /bem-vindo/."""
 import json
 from unittest.mock import patch
 
@@ -8,7 +8,6 @@ from django.urls import reverse
 
 from api.tests import ApiTestCase
 from catalog.models import Title
-from recommender.avatar import RAMP, SIZE, avatar_grid
 from recommender.config import get_config
 from recommender.models import Interaction
 
@@ -43,7 +42,6 @@ class DesbloqueioTests(InsightsTestCase):
         self.assertFalse(any(trava['unlocked'] for trava in dados['locks'].values()))
         self.assertIsNone(dados['dna'])
         self.assertIsNone(dados['stats'])
-        self.assertTrue(dados['avatar']['empty'])
 
     def test_limiares_de_cada_secao(self):
         self.curtir_varios(2)
@@ -164,34 +162,6 @@ class ModoESeTests(InsightsTestCase):
         self.assertEqual(resposta.status_code, 400)
 
 
-class AvatarTests(InsightsTestCase):
-    def test_grade_e_simetrica_e_usa_a_rampa(self):
-        resumo = {'dna': [{'token': 'g:science_fiction', 'weight': 1.0}, {'token': 'c:ana', 'weight': 0.4}],
-                  'kinds': {'movie': 0.2, 'anime': 0.8}}
-        grade = avatar_grid(resumo)
-        self.assertEqual(len(grade['rows']), SIZE)
-        for linha in grade['rows']:
-            self.assertEqual(len(linha), SIZE)
-            self.assertEqual(linha, linha[::-1])
-            self.assertTrue(set(linha) <= set(RAMP))
-        self.assertEqual(grade['ink'], 'silver')
-        self.assertEqual(avatar_grid(resumo), grade)
-
-    def test_svg_com_etag_que_muda_com_o_gosto(self):
-        url = reverse('api:profile-avatar')
-        vazio = self.client.get(url)
-        self.assertEqual(vazio['Content-Type'], 'image/svg+xml; charset=utf-8')
-        self.assertIn(b'<svg', vazio.content)
-
-        self.curtir_varios(2)
-        primeiro = self.client.get(url)
-        self.assertNotEqual(primeiro['ETag'], vazio['ETag'])
-        self.assertEqual(self.client.get(url, HTTP_IF_NONE_MATCH=primeiro['ETag']).status_code, 304)
-
-        self.marcar('Office Days', State.FAVORITE, kind='series')
-        self.assertNotEqual(self.client.get(url)['ETag'], primeiro['ETag'])
-
-
 class PaginasDePerfilTests(InsightsTestCase):
     def test_perfil_anonimo(self):
         resposta = self.client.get(reverse('web:profile'))
@@ -206,5 +176,5 @@ class PaginasDePerfilTests(InsightsTestCase):
 
     def test_cabecalho_tem_o_link_do_perfil(self):
         resposta = self.client.get(reverse('web:home'))
-        self.assertContains(resposta, reverse('api:profile-avatar'))
+        self.assertContains(resposta, 'img/perfil-padrao')
         self.assertContains(resposta, f'href="{reverse("web:profile")}"')
