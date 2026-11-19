@@ -112,6 +112,27 @@ class Playground {
     const aplicar = () => painel?.toggleAttribute('data-lenis-prevent', desktop.matches);
     aplicar();
     desktop.addEventListener('change', aplicar);
+    this.watchPanelJump(painel);
+  }
+
+  /**
+   * Botão flutuante "Ver recomendações" (só abaixo do desktop): some quando o painel ou o
+   * rodapé entram na tela, para não ficar por cima deles nem levar a onde a pessoa já está.
+   */
+  watchPanelJump(painel) {
+    const botao = $('[data-panel-jump]');
+    const rodape = $('footer');
+    if (!botao || !painel) return;
+    const visiveis = new Set();
+    // A margem de baixo reserva a faixa do próprio botão: ele some antes de encostar neles.
+    const observador = new IntersectionObserver((entradas) => {
+      entradas.forEach((e) => (e.isIntersecting ? visiveis.add(e.target) : visiveis.delete(e.target)));
+      const esconder = visiveis.size > 0;
+      botao.toggleAttribute('data-off', esconder);
+      botao.toggleAttribute('inert', esconder);
+    }, { rootMargin: '0px 0px -80px 0px' });
+    observador.observe(painel);
+    if (rodape) observador.observe(rodape);
   }
 
   async start() {
