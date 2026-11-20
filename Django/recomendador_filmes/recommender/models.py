@@ -186,3 +186,33 @@ class UserPreferences(models.Model):
 
     def __str__(self):
         return f'Preferências de {self.user}'
+
+
+class IndexSnapshot(models.Model):
+    """Índice de recomendação pronto, publicado no Vercel Blob pela rotina diária.
+
+    No Vercel, uma instância nova baixa o arquivo daqui em vez de reconstruir o índice a partir
+    do banco (o que leva dezenas de segundos com o catálogo grande). O registro guarda o
+    fingerprint do catálogo e o hash das features que o geraram, para saber se ainda vale.
+    """
+
+    url = models.URLField('URL pública', max_length=500)
+    pathname = models.CharField('caminho no Blob', max_length=255)
+    total = models.PositiveIntegerField('títulos no catálogo')
+    last_update = models.CharField('último updated_at do catálogo', max_length=40, blank=True)
+    feature_hash = models.CharField(max_length=64)
+    format = models.PositiveSmallIntegerField('formato do índice')
+    size = models.PositiveIntegerField('tamanho (bytes)')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'índice publicado'
+        verbose_name_plural = 'índices publicados'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.pathname} ({self.total} títulos)'
+
+    @property
+    def fingerprint(self):
+        return (self.total, self.last_update or None)
