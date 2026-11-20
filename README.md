@@ -63,6 +63,54 @@ O que a importação trata:
 - **Popularidade comparável**: o percentil dentro de cada tipo, já que o índice do TMDB e os
   membros do MAL estão em escalas sem relação.
 
+## Catálogo pelas APIs (ampliar e atualizar)
+
+Os CSVs servem para começar sem chave nenhuma, mas param no tempo (o TMDB 5000 vai até 2017).
+O comando `sync_catalog` traz o catálogo direto das APIs, já com capas, e pode ser repetido para
+acompanhar os lançamentos:
+
+```powershell
+$env:TMDB_API_KEY = "sua-chave"          # filmes e séries; chave v3 ou token v4 do TMDB
+python manage.py sync_catalog            # 8000 filmes, 3000 séries e 3000 animes + lançamentos
+python manage.py sync_catalog --kinds anime              # só animes (não precisa de chave)
+python manage.py sync_catalog --movies 500 --series 0 --anime 0 --no-map
+```
+
+- **O que entra:** os mais votados de cada tipo (os clássicos que as pessoas procuram) e os
+  lançamentos dos últimos `--recent-days` dias (padrão 365), pelos `--recent` mais populares
+  (padrão 1000 por tipo) que já tenham `--recent-min-votes` votos (padrão 20).
+- **Filmes e séries:** a descoberta do TMDB lista os títulos; só os novos pedem a página de
+  detalhes (sinopse, elenco, direção, palavras-chave). Os que já estão no banco, inclusive os dos
+  CSVs, só ganham nota, votos, popularidade e capa novos. `--full` detalha todos de novo.
+- **Animes:** API GraphQL da AniList (sem chave), por popularidade, nos formatos TV, TV curta,
+  ONA e OVA; filmes de anime vêm pelo TMDB. O ID continua sendo o do MyAnimeList, o mesmo dos
+  CSVs, então nada se duplica e o histórico dos usuários continua valendo. Animes sem ID no
+  MyAnimeList ficam de fora.
+- **Seguro para repetir:** faz *upsert*, nunca apaga títulos, grava em lotes (pode ser
+  interrompido) e respeita os limites das APIs. Ao final, reconstrói o índice e o mapa
+  (`--no-index`, `--no-map`).
+- **Textos em inglês**, como o resto do catálogo (o índice usa stop words do inglês). Conteúdo
+  adulto e séries de animação japonesa do TMDB (que entram como anime pela AniList) ficam de fora.
+
+### Rotina diária (GitHub Actions)
+
+O workflow `.github/workflows/sync-catalog.yml` mantém a produção atualizada sozinho, todo dia
+às 06:30 UTC (ou à mão, na aba *Actions*, com a opção de `--full`):
+
+1. `sync_catalog --no-index`: títulos novos e números atualizados direto no Neon.
+2. `build_index`: índice de recomendação e mapa do gosto (as coordenadas vão para o banco).
+3. `publish_index`: envia o índice pronto (~7 MB) ao **Vercel Blob** (store `angulo-indice`) e
+   registra a publicação na tabela `IndexSnapshot`, apagando as antigas (ficam as duas últimas).
+
+No Vercel, cada instância nova baixa esse arquivo em vez de reconstruir o índice a partir do
+banco (o que levaria dezenas de segundos com 17 mil títulos). Se o catálogo mudou depois da
+última publicação, a instância segue com o índice publicado até sair o próximo; só sem nenhum
+publicado (ou se o download falhar) ela reconstrói, como antes. Localmente nada muda: o índice
+é construído e guardado em `var/`.
+
+A rotina não aplica migrações: se houver alguma pendente no banco, ela para no início. Segredos
+do repositório que ela usa: `DATABASE_URL`, `TMDB_API_KEY` e `BLOB_READ_WRITE_TOKEN`.
+
 ## Capas
 
 As capas originais são buscadas por um comando à parte e exibidas em cores. Sem capa, ou se a
@@ -272,7 +320,7 @@ e as contas (cadastro, login, bloqueio, mescla do histórico e preferências).
 ```
 Django/recomendador_filmes/
 ├── accounts/                # usuário (login por e-mail), cadastro, login, axes, foto de perfil
-├── catalog/                 # modelos Title/Genre, importadores e `import_dataset`
+├── catalog/                 # modelos Title/Genre, importadores, `import_dataset` e `sync_catalog`
 │   └── importers/           # base.py (limpeza), tmdb.py, myanimelist.py, loader.py (upsert)
 ├── recommender/             # o motor
 │   ├── config.py            # pesos e parâmetros
@@ -309,12 +357,13 @@ e os estáticos via WhiteNoise) e um Postgres do Neon instalado pelo Marketplace
 ecomendador_filmes
    python manage.py migrate
    python manage.py import_dataset --no-index
+   python manage.py sync_catalog           # opcional, com TMDB_API_KEY: catálogo maior e atual
    python manage.py fetch_posters          # opcional, com TMDB_API_KEY
    ```
 
-Detalhes: no Vercel, `DEBUG` fica desligado por padrão, os domínios `*.vercel.app` são aceitos
-automaticamente e o índice de recomendação é reconstruído em `/tmp` no primeiro acesso de cada
-instância (alguns segundos; as seguintes levam milissegundos).
+Detalhes: no Vercel, `DEBUG` fica desligado por padrão e os domínios `*.vercel.app` são aceitos
+automaticamente. O índice de recomendação vem pronto do Vercel Blob (ver "Rotina diária") e fica
+em `/tmp` enquanto a instância viver; sem nenhum publicado, é reconstruído no primeiro acesso.
 
 ## Configuração para produção
 
@@ -325,6 +374,6 @@ instância (alguns segundos; as seguintes levam milissegundos).
 | `DJANGO_ALLOWED_HOSTS` | vazio                 | Hosts separados por vírgula                 |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | vazio          | Origens HTTPS extras, separadas por vírgula  |
 | `DATABASE_URL`         | SQLite local          | Banco remoto (ex.: Postgres do Neon)        |
-| `TMDB_API_KEY`         | vazio                 | Só para `fetch_posters`                     |
+| `TMDB_API_KEY`         | vazio                 | Só para `sync_catalog` e `fetch_posters`    |
 
 Em produção, rode `python manage.py collectstatic` e sirva `staticfiles/` pelo servidor web.

@@ -1,0 +1,67 @@
+# Rotina diária do catálogo: busca títulos novos e números atualizados nas APIs (TMDB e AniList),
+# recalcula o índice de recomendação e o mapa do gosto e publica o índice no Vercel Blob, de
+# onde as instâncias do Vercel o baixam pronto (sem reconstruir a cada inicialização).
+#
+# Segredos do repositório (Settings > Secrets and variables > Actions):
+#   DATABASE_URL           banco de produção (Neon), o mesmo do Vercel
+#   TMDB_API_KEY           chave v3 ou token v4 do TMDB
+#   BLOB_READ_WRITE_TOKEN  token do store "angulo-indice" do Vercel Blob
+#
+# Também pode ser disparada à mão (aba Actions > "Sincroniza o catálogo" > Run workflow).
+name: Sincroniza o catálogo
+
+on:
+  schedule:
+    - cron: '30 6 * * *'   # todo dia às 06:30 UTC (03:30 em Brasília), antes da limpeza das 07:00
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Rebaixar os detalhes de todos os títulos (--full), não só dos novos'
+        type: boolean
+        default: false
+
+# Duas execuções ao mesmo tempo escreveriam no mesmo banco: a segunda espera a primeira.
+concurrency:
+  group: sync-catalog
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: Django/recomendador_filmes
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      DJANGO_DEBUG: 'False'
+      DJANGO_SECRET_KEY: rotina-de-catalogo-sem-requisicoes-web
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      # A mesma versão do Python do Vercel: o índice publicado é desserializado lá.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: Django/recomendador_filmes/requirements.txt
+
+      - name: Dependências
+        run: pip install -r requirements.txt vercel-blob
+
+      # Não aplica migrações: elas vão para produção junto com o deploy. Se houver alguma
+      # pendente, a rotina para aqui em vez de gravar num banco desatualizado.
+      - name: Banco sem migrações pendentes
+        run: python manage.py migrate --check
+
+      - name: Catálogo (TMDB e AniList)
+        run: python manage.py sync_catalog --no-index ${{ inputs.full && '--full' || '' }}
+
+      - name: Índice e mapa do gosto
+        run: python manage.py build_index
+
+      - name: Publica o índice no Vercel Blob
+        run: python manage.py publish_index

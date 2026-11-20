@@ -27,6 +27,7 @@ from dataclasses import dataclass, field, replace
 import joblib
 import numpy as np
 import pandas as pd
+from django.db import DatabaseError
 from django.db.models import Count, Max
 
 from catalog.models import Title
@@ -139,6 +140,7 @@ class Recommendation:
 _lock = threading.Lock()
 _cached = None
 _checked_at = 0.0  # time.monotonic() da última vez que o fingerprint confirmou _cached
+_snapshot_pk = None  # IndexSnapshot de onde veio _cached (para não baixar o mesmo de novo)
 
 
 def _fingerprint():
@@ -157,7 +159,12 @@ def _is_current(indice, fingerprint, config):
 
 
 def get_index():
-    """Índice atual, do cache em memória, do disco ou reconstruído, nessa ordem."""
+    """Índice atual: do cache em memória, do disco, do Blob (no Vercel) ou reconstruído.
+
+    No Vercel (`use_snapshots`), o índice publicado pela rotina diária é usado mesmo que o
+    catálogo tenha mudado depois dele: reconstruir lá é lento demais para uma requisição. Ele
+    é trocado assim que a rotina publica um novo. Só sem nenhum publicado o índice é construído.
+    """
     global _cached, _checked_at
     config = get_config()
     # Dentro do intervalo, nem consulta o banco: o catálogo muda raramente (só por comando).
@@ -173,6 +180,8 @@ def get_index():
         if not _is_current(_cached, fingerprint, config):
             indice = _load_from_disk(config)
             if not _is_current(indice, fingerprint, config):
+                indice = _from_snapshot(config, fingerprint, atual=_cached) or indice
+            if not _is_current(indice, fingerprint, config) and not (config.use_snapshots and indice):
                 indice = _build_and_save(config, fingerprint)
             _cached = indice
         _checked_at = time.monotonic()
@@ -195,6 +204,34 @@ def _load_from_disk(config):
     except Exception:  # arquivo corrompido ou de outra versão: reconstrói
         logger.warning('Índice em %s ilegível; será reconstruído.', config.index_path, exc_info=True)
         return None
+
+
+def _from_snapshot(config, fingerprint, atual):
+    """Índice publicado no Blob: o exato para este catálogo ou, na falta dele, o mais recente."""
+    global _snapshot_pk
+    if not config.use_snapshots:
+        return None
+    from .index_store import download, snapshot_for
+
+    try:
+        snapshot = snapshot_for(fingerprint, config.feature_hash, INDEX_FORMAT)
+    except DatabaseError:  # tabela ainda não migrada: segue como antes
+        logger.warning('Sem acesso aos índices publicados; o índice será construído.', exc_info=True)
+        return None
+    if snapshot is None:
+        return None
+    if snapshot.pk == _snapshot_pk and atual is not None:
+        return atual  # já é o que está em memória: nada a baixar
+    indice = download(snapshot)
+    if indice is None or indice.format != INDEX_FORMAT or indice.feature_hash != config.feature_hash:
+        return None
+    _snapshot_pk = snapshot.pk
+    try:
+        config.index_path.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(indice, config.index_path, compress=3)
+    except OSError:
+        pass  # o disco é só um atalho; em memória já basta
+    return indice
 
 
 def _build_and_save(config, fingerprint):

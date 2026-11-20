@@ -47,6 +47,9 @@ class RecommenderConfig:
     # Segundos em que o índice em memória é usado sem conferir no banco se o catálogo mudou.
     # 0 confere a cada consulta (desenvolvimento e testes).
     fingerprint_ttl: float = 0
+    # Baixa o índice publicado no Vercel Blob (ver recommender/index_store.py) em vez de
+    # reconstruí-lo. Ligado no Vercel; localmente o índice é construído como sempre.
+    use_snapshots: bool = False
 
     @property
     def block_weights(self):
