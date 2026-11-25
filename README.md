@@ -12,6 +12,67 @@ desenha o fundo em caracteres ASCII.
   Controles para α (similaridade × qualidade), nota × popularidade, corte de títulos pouco
   votados, diversidade (MMR) e tipos.
 
+Como o cosseno é calculado e onde ele entra no código: [Similaridade do cosseno](#similaridade-do-cosseno-onde-e-como).
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+    TMDB["API do TMDB<br/>filmes e séries"] --> SYNC
+    ANI["API da AniList<br/>animes"] --> SYNC
+
+    subgraph GHA["GitHub Actions · diária"]
+        SYNC["sync_catalog"] --> BUILD["build_index<br/>matriz X + mapa"] --> PUB["publish_index"]
+    end
+
+    SYNC --> DB[("Neon Postgres<br/>catálogo · avaliações<br/>contas")]
+    PUB --> BLOB[("Vercel Blob<br/>índice ~7 MB")]
+
+    subgraph VERCEL["Vercel · função Python"]
+        DJ["Django<br/>páginas e /api/"] --> ENG["recommender<br/>cosseno · híbrido · perfil"]
+    end
+
+    DB <--> DJ
+    BLOB --> ENG
+    DJ <--> USER["Navegador"]
+```
+
+- **Rotina diária** (GitHub Actions): traz o catálogo das APIs para o Neon, constrói a matriz de
+  features e o mapa e publica o índice pronto no Vercel Blob (detalhes em
+  [Rotina diária](#rotina-diária-github-actions)).
+- **Vercel**: o Django serve as páginas e a API. O índice não é construído lá, só baixado: cada
+  instância nova pega o arquivo do Blob uma vez e o guarda em memória e em `/tmp`.
+- **Neon**: guarda o catálogo, as avaliações (`Interaction`, `TasteEvent`), as contas, as
+  preferências e o registro das publicações do índice (`IndexSnapshot`).
+
+Uma avaliação no playground, do clique às recomendações novas:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as Navegador
+    participant A as Django /api/
+    participant E as recommender.engine
+    participant D as Neon
+    participant B as Vercel Blob
+
+    U->>A: POST /api/profile/interactions/ (Curti)
+    A->>D: grava Interaction e TasteEvent
+    U->>A: GET /api/recommendations/
+    A->>D: histórico da sessão ou da conta
+    A->>E: get_index()
+    alt índice já em memória
+        E-->>E: usa o cache
+    else instância nova
+        E->>B: baixa o índice publicado
+    end
+    E->>E: perfil = Rocchio dos avaliados, norma 1
+    E->>E: cos = X @ perfil (17 mil títulos, ~3 ms)
+    E->>E: pool de 250 · filtro híbrido · MMR
+    E-->>A: recomendações + parcela de cada bloco + motivos
+    A-->>U: JSON (o playground reordena com Flip)
+```
+
 ## Como executar
 
 Requer Python 3.11+. No Windows (PowerShell), a partir da raiz do repositório:
@@ -132,21 +193,104 @@ python manage.py fetch_posters --kinds anime   # animes não precisam de chave
 - As imagens são carregadas direto dos servidores do TMDB e da AniList (nada é baixado), e
   reimportar os CSVs não apaga as capas já buscadas.
 
-## O algoritmo
+## Similaridade do cosseno: onde e como
 
-Código em `recommender/`. Cada título vira um vetor esparso com três blocos, cada um
-normalizado e multiplicado por √peso (pesos em `recommender/config.py`, sobrescrevíveis em
-`settings.RECOMMENDER`):
+Todo o motor (`recommender/`) gira em torno de uma única medida: o **cosseno do ângulo** entre
+dois vetores, que dá nome ao projeto. Dois títulos são parecidos quando os seus vetores apontam
+para a mesma direção, não importa o "tamanho" de cada um (uma sinopse longa não vale mais que
+uma curta):
 
-| Bloco        | Peso | Conteúdo |
-|--------------|------|----------|
-| `synopsis`   | 35%  | TF-IDF (uni e bigramas, sublinear) da sinopse + tagline |
-| `tags`       | 45%  | TF-IDF de tokens: gêneros (reforçados ×3), palavras-chave, elenco e direção/estúdio, cada pessoa em um token |
-| `attributes` | 20%  | Tipo (one-hot), ano e nota em "one-hot suave" (funções de base radial: 1994 fica perto de 1999) |
+```
+cos(a, b) = (a · b) / (‖a‖ · ‖b‖)        1 = mesma direção · 0 = nada em comum
+```
 
-Como os pesos somam 1 e cada bloco tem norma 1, o produto escalar de duas linhas é
-`cos(a, b) = Σ peso · cos_bloco(a, b)`. A similaridade se decompõe por bloco, e o playground
-mostra essa conta em cada recomendação.
+### 1. Cada título vira um vetor
+
+[`features.py`](Django/recomendador_filmes/recommender/features.py) transforma o catálogo numa
+matriz esparsa **X** (uma linha por título). Cada linha junta três blocos; cada bloco é
+normalizado (norma L2 = 1) e multiplicado por √peso (pesos em `recommender/config.py`,
+sobrescrevíveis em `settings.RECOMMENDER`):
+
+```mermaid
+flowchart TD
+    T["Title<br/>sinopse · gêneros · palavras-chave · elenco · direção · ano · nota · tipo"]
+    T --> A["<b>synopsis</b><br/>TF-IDF de uni e bigramas<br/>da sinopse + tagline"]
+    T --> B["<b>tags</b><br/>TF-IDF de tokens<br/>g:drama · k:heist · d:christopher_nolan"]
+    T --> C["<b>attributes</b><br/>tipo em one-hot<br/>ano e nota em one-hot suave"]
+    A --> A2["normaliza · × √0,35"]
+    B --> B2["normaliza · × √0,45"]
+    C --> C2["normaliza · × √0,20"]
+    A2 & B2 & C2 --> H["concatena e normaliza"]
+    H --> X[("<b>X</b> · N × d esparsa<br/>toda linha com norma 1")]
+```
+
+| Bloco        | Peso | Colunas* | Conteúdo |
+|--------------|------|----------|----------|
+| `synopsis`   | 35%  | 20.000   | TF-IDF (uni e bigramas, sublinear, stop words do inglês) da sinopse + tagline |
+| `tags`       | 45%  | 23.224   | TF-IDF de tokens: gêneros (reforçados ×3), palavras-chave, elenco e direção/estúdio, cada pessoa em um token |
+| `attributes` | 20%  | 26       | Tipo (one-hot), ano e nota em "one-hot suave" (funções de base radial: 1994 fica perto de 1999 e longe de 1950) |
+
+\* No catálogo de 17 mil títulos: X tem 17.007 × 43.250 posições, das quais só 1,2 milhão
+(0,16%) não são zero.
+
+### 2. Por que um produto escalar basta
+
+Como **toda linha de X tem norma 1**, o denominador da fórmula vale 1 e o cosseno vira um
+simples produto escalar: `cos(a, b) = a · b`. Isso tem duas consequências:
+
+- **Comparar com o catálogo inteiro é uma conta só.** O vetor de consulta `q` também tem
+  norma 1, então `X @ q` devolve, de uma vez, o cosseno de `q` com os 17 mil títulos: um produto
+  matriz-vetor esparso de **~3 ms**. A matriz N × N de todos contra todos nunca é calculada (com
+  17 mil títulos seria cerca de 1,2 GB em float32).
+- **O cosseno se decompõe por bloco.** Cada bloco entra com norma √peso, e os pesos somam 1:
+
+  ```
+  cos(a, b) = 0,35 · cos_sinopse(a, b) + 0,45 · cos_tags(a, b) + 0,20 · cos_atributos(a, b)
+  ```
+
+  Por isso o playground consegue mostrar de onde veio cada recomendação. Exemplo ilustrativo:
+  sinopses pouco parecidas (0,20), mesmo diretor e gêneros (0,60) e mesma época e faixa de nota
+  (0,90) dão `0,07 + 0,27 + 0,18 = 0,52`.
+
+### 3. A consulta: um título ou o seu perfil
+
+A consulta `q` é sempre um vetor no **mesmo espaço** dos títulos:
+
+- **"Parecidos com"** (`/api/titles/<id>/similar/`): `q` é a própria linha do título.
+- **Recomendações** (`/api/recommendations/`): `q` é o **perfil**, a média ponderada dos títulos
+  que você curtiu menos metade da média dos que não curtiu (Rocchio, ver abaixo), normalizada
+  para norma 1 em [`profile.py`](Django/recomendador_filmes/recommender/profile.py). Assim
+  `X @ perfil` já é o cosseno de cada título com o seu gosto, sem nenhum treino.
+
+```mermaid
+flowchart TD
+    Q1["Parecidos com um título<br/>q = linha do título"] --> COS
+    Q2["Recomendações<br/>q = perfil / ‖perfil‖"] --> COS
+    COS["<b>cos = X @ q</b><br/>17 mil cossenos em ~3 ms"] --> F["filtros<br/>tipo · já avaliados ·<br/>corte de obscuridade"]
+    F --> POOL["pool<br/>250 maiores cossenos"]
+    POOL --> HY["filtro híbrido<br/>α · cos/cos_máx + (1 − α) · qualidade"]
+    HY --> MMR["MMR<br/>penaliza cosseno alto<br/>entre os escolhidos"]
+    MMR --> OUT["k recomendações<br/>+ parcela de cada bloco<br/>+ tokens em comum"]
+```
+
+### 4. Onde o cosseno aparece no código
+
+| Onde | Conta | Para quê |
+|------|-------|----------|
+| [`engine._rank`](Django/recomendador_filmes/recommender/engine.py#L338) | `X @ q` | Ranking de "parecidos com" e das recomendações: escolhe os 250 candidatos antes do filtro híbrido |
+| [`profile.build_profile`](Django/recomendador_filmes/recommender/profile.py#L36) | `perfil / ‖perfil‖` | Põe o perfil na mesma esfera dos títulos, para que `X @ perfil` seja o cosseno |
+| [`engine.mmr`](Django/recomendador_filmes/recommender/engine.py#L385) | `V @ Vᵀ` do pool | Diversidade: troca um pouco de score por menos cosseno com o que já foi escolhido |
+| [`engine._contributions`](Django/recomendador_filmes/recommender/engine.py#L408) | produto por fatia de bloco | Parcela do cosseno vinda da sinopse, das tags e dos atributos (somam o cosseno total) |
+| [`engine._reasons`](Django/recomendador_filmes/recommender/engine.py#L417) | produto por token de tags | Os "motivos": diretor, gêneros e temas que mais somaram ao cosseno |
+| [`engine.similarity_matrix`](Django/recomendador_filmes/recommender/engine.py#L310) | `S @ Sᵀ` (até 24 títulos) | O mapa de calor do playground (`/api/similarity-matrix/`) |
+| [`insights._defining`](Django/recomendador_filmes/recommender/insights.py#L248) | `X[positivos] @ perfil` | "Títulos que te definem": peso de cada avaliação × cosseno com o perfil |
+| [`insights._comfort`](Django/recomendador_filmes/recommender/insights.py#L278) | `1 − média(cos)` | Dispersão: o quanto os seus positivos se espalham em volta do perfil |
+| [`insights._blind_spots`](Django/recomendador_filmes/recommender/insights.py#L305) | `X @ perfil` | Porta de entrada de um ponto cego: bem avaliado e o mais perto possível do seu gosto |
+| [`insights._map`](Django/recomendador_filmes/recommender/insights.py#L358) | `X @ perfil` | Mira do mapa do gosto: média da posição dos títulos de maior cosseno com o perfil |
+| [`insights._watchlist`](Django/recomendador_filmes/recommender/insights.py#L393) | `X @ perfil` | % de match de cada "quero assistir" (cosseno relativo ao melhor do catálogo) |
+| [`projection.compute_projection`](Django/recomendador_filmes/recommender/projection.py#L21) | t-SNE com `metric='cosine'` | Mapa 2D: títulos próximos no cosseno ficam próximos na tela |
+
+### 5. Do cosseno à lista final
 
 **Filtro híbrido.** Os 250 candidatos mais similares (respeitando tipo, histórico e o corte de
 obscuridade por percentil de votos) são reordenados por
@@ -168,10 +312,11 @@ mudança de estado fica registrada na tabela `TasteEvent`, que vai alimentar a e
 Não há treino: cada clique muda o vetor e a próxima consulta já o usa. O histórico fica na sessão
 do navegador (ou no usuário autenticado), na tabela `Interaction`.
 
-**Desempenho.** A matriz N×N nunca é materializada (com 5 mil títulos seriam 100 MB): cada
-consulta é um produto matriz-vetor esparso de ~10–30 ms. O índice é salvo em
-`var/recommender_index.joblib` e reconstruído sozinho quando o catálogo ou os pesos mudam
-(ou com `python manage.py build_index`).
+**Desempenho.** Construir X (TF-IDF dos 17 mil títulos) leva alguns segundos, então isso
+acontece uma vez e o resultado fica salvo: o índice (X, pesos de qualidade e metadados) vai para
+`var/recommender_index.joblib` e é reconstruído sozinho quando o catálogo ou os pesos mudam (ou
+com `python manage.py build_index`). Cada consulta só faz o `X @ q` de ~3 ms e ordena os
+candidatos. Em produção, o índice vem pronto do Vercel Blob (ver [Arquitetura](#arquitetura)).
 
 ## API
 
@@ -353,8 +498,7 @@ e os estáticos via WhiteNoise) e um Postgres do Neon instalado pelo Marketplace
 
    ```powershell
    $env:DATABASE_URL = "postgresql://..."   # a mesma do Vercel (vercel env pull)
-   cd Django
-ecomendador_filmes
+   cd Django\recomendador_filmes
    python manage.py migrate
    python manage.py import_dataset --no-index
    python manage.py sync_catalog           # opcional, com TMDB_API_KEY: catálogo maior e atual
